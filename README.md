@@ -39,12 +39,6 @@ sudo dpkg -i jdk-24_linux-x64_bin.deb
 sudo apt-get install -f  # Fix dependencies
 ```
 
-### Make Java 24 Default (Optional)
-
-```bash
-sudo update-alternatives --install /usr/bin/java java /usr/lib/jvm/jdk-24/bin/java 1
-```
-
 ---
 
 ## 3. Install & Configure MySQL
