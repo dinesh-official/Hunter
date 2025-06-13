@@ -51,6 +51,25 @@ sudo update-alternatives --install /usr/bin/java java /usr/lib/jvm/jdk-24/bin/ja
 
 Hunter uses a MySQL database. Create a user and grant necessary privileges.
 
+To Allow Remote MySQL Access:
+```sql
+CREATE USER 'hunter'@'%' IDENTIFIED BY 'Dineshdb121@gmail.com';
+GRANT ALL PRIVILEGES ON hunter.* TO 'hunter'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+```
+
+Then edit your MySQL config file (my.cnf or mysqld.cnf) and ensure:
+
+```bash
+bind-address = 0.0.0.0
+```
+
+Then restart MySQL:
+
+```bash
+sudo systemctl restart mysql
+```
+
 ### For Localhost Only
 
 ```sql
