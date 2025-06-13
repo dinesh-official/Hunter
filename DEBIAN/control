@@ -1,0 +1,7 @@
+Package: hunter
+Version: 1.0.0
+Section: base
+Priority: optional
+Architecture: all
+Maintainer: Dinesh Kumar <dineshdb121careers@gmail.com>
+Description: Hunter - Ntop-Based Network Alerting Service

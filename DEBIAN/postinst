@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Create hunter user if not exists
+if ! id "hunter" >/dev/null 2>&1; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin hunter
+fi
+
+# Set permissions
+chown -R hunter:hunter /usr/lib/hunter
+chown -R hunter:hunter /etc/hunter
+chown -R hunter:hunter /var/log/hunter
+
+# Enable and start service
+systemctl daemon-reexec
+systemctl daemon-reload
+systemctl enable hunter
