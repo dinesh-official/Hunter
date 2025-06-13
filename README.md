@@ -57,7 +57,21 @@ GRANT ALL PRIVILEGES ON hunter.* TO 'hunter'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 ```
 
-Then edit your MySQL config file (my.cnf or mysqld.cnf) and ensure:
+## Then edit your MySQL config file (my.cnf or mysqld.cnf) and ensure:
+
+Enable Remote Access to MySQL
+
+To allow MySQL to accept connections from remote machines, you need to modify the MySQL configuration file to listen on all network interfaces.
+
+---
+
+## 📂 Step 1: Open the MySQL Configuration File
+
+Edit the following file:
+
+```bash
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+```
 
 ```bash
 bind-address = 0.0.0.0
