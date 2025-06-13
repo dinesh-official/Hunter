@@ -12,8 +12,6 @@ A step-by-step guide to install and configure the **Hunter** Spring Boot applica
 2. [Install Java](#2-install-java)
 3. [Install & Configure MySQL](#3-install--configure-mysql)
 4. [Install Hunter](#4-install-hunter)
-
-   * [Start Hunter](#start-hunter)
 5. [Check Logs](#5-check-logs)
 6. [Other Configuration (Optional)](#6-other-configuration-optional)
 
