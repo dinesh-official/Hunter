@@ -87,13 +87,13 @@ sudo apt install ./hunter.deb
 #### Start Hunter
 
 ```bash
-sudo systemctl enable --now hunter.service
+sudo systemctl enable --now hunter
 ```
 
 #### Status Hunter
 
 ```bash
-sudo systemctl status hunter.service
+sudo systemctl status hunter
 ```
 
 ### One-Click Installation (Optional)
