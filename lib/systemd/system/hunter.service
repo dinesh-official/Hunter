@@ -1,0 +1,16 @@
+[Unit]
+Description=Hunter Spring Boot Service
+After=network.target
+
+[Service]
+User=hunter
+WorkingDirectory=/usr/lib/hunter
+ExecStart=/usr/bin/java -jar /usr/lib/hunter/hunter.jar --spring.config.location=/etc/hunter/hunter.properties
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/hunter/hunter.log
+StandardError=append:/var/log/hunter/hunter-error.log
+
+[Install]
+WantedBy=multi-user.target
