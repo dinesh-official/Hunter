@@ -45,24 +45,31 @@ sudo apt-get install -f  # Fix dependencies
 
 Hunter uses a MySQL database. Create a user and grant necessary privileges.
 
-Install MySql 
+### Install MySql 
 ```bash
 sudo apt install mysql-server
 ```
+### For Localhost Only
 
-To Allow Remote MySQL Access:
 ```sql
-CREATE USER 'hunter'@'%' IDENTIFIED BY 'Dineshdb121@gmail.com';
-GRANT ALL PRIVILEGES ON hunter.* TO 'hunter'@'%' WITH GRANT OPTION;
+CREATE USER 'hunter'@'localhost' IDENTIFIED BY 'Dineshdb121@gmail.com';
+GRANT ALL PRIVILEGES ON hunter.* TO 'hunter'@'localhost' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 ```
+
+### Verify MySQL User
+
+```sql
+SELECT user, host FROM mysql.user;
+SHOW GRANTS FOR 'hunter'@'localhost';
+```
+
 ---
-## Then edit your MySQL config file (my.cnf or mysqld.cnf) and ensure:
+## To Allow Remote MySQL Access Bellow ( Optional ): 
+
+### Then edit your MySQL config file (my.cnf or mysqld.cnf) and ensure:
 
 Enable Remote Access to MySQL
-
-To allow MySQL to accept connections from remote machines, you need to modify the MySQL configuration file to listen on all network interfaces.
-
 
 ## 📂 Step 1: Open the MySQL Configuration File
 
@@ -82,22 +89,14 @@ Then restart MySQL:
 sudo systemctl restart mysql
 ```
 
-### For Localhost Only
-
+To Allow Remote MySQL Access:
 ```sql
-CREATE USER 'hunter'@'localhost' IDENTIFIED BY 'Dineshdb121@gmail.com';
-GRANT ALL PRIVILEGES ON hunter.* TO 'hunter'@'localhost' WITH GRANT OPTION;
+CREATE USER 'hunter'@'%' IDENTIFIED BY 'Dineshdb121@gmail.com';
+GRANT ALL PRIVILEGES ON hunter.* TO 'hunter'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 ```
-
-### Verify MySQL User
-
-```sql
-SELECT user, host FROM mysql.user;
-SHOW GRANTS FOR 'hunter'@'localhost';
-```
-
 ---
+
 
 ## 4. Install Hunter
 
