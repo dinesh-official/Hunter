@@ -170,5 +170,4 @@ tail -f /var/log/hunter/hunter.log
 tail -f /var/log/hunter/hunter-error.log
 ```
 
----
 
