@@ -56,14 +56,13 @@ CREATE USER 'hunter'@'%' IDENTIFIED BY 'Dineshdb121@gmail.com';
 GRANT ALL PRIVILEGES ON hunter.* TO 'hunter'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 ```
-
+---
 ## Then edit your MySQL config file (my.cnf or mysqld.cnf) and ensure:
 
 Enable Remote Access to MySQL
 
 To allow MySQL to accept connections from remote machines, you need to modify the MySQL configuration file to listen on all network interfaces.
 
----
 
 ## 📂 Step 1: Open the MySQL Configuration File
 
