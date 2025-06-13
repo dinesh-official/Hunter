@@ -75,7 +75,7 @@ SHOW GRANTS FOR 'hunter'@'localhost';
 #### Download Hunter Package
 
 ```bash
-wget https://github.com/dinesh-official/Hunter/raw/main/hunter.deb
+wget https://github.com/dinesh-official/Hunter/releases/download/v1.0.0/Hunter.deb
 ```
 
 #### Install Hunter
