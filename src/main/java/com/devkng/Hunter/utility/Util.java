@@ -17,7 +17,7 @@ public class Util {
                                // Objects.equals(mailType,mail.getMailType())
                 );
     }
-    public static String outSucess(String s) {
+    public static String outSuccess(String s) {
         return GREEN + s + RESET;
     }
 }

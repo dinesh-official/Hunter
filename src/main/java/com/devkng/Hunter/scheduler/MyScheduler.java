@@ -130,7 +130,7 @@ public class MyScheduler {
             if (sent) {
                 insertMailRecord("", "", srcIp, "", sshConfig.getMail().getType());
                 mailedIps.add(srcIp);
-                out.println(Util.outSucess("✅ Mail sent to IP: " + srcIp));
+                out.println(Util.outSuccess("✅ Mail sent to IP: " + srcIp));
             } else {
                 out.println("❌ Failed to send mail to IP: " + srcIp + " after 2 attempts");
             }
@@ -154,7 +154,7 @@ public class MyScheduler {
             helper.setText(body, true);
 
             mailSender.send(message);
-            out.println(Util.outSucess("send email: " + to));
+            out.println(Util.outSuccess("send email: " + to));
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -171,7 +171,7 @@ public class MyScheduler {
              Statement stmt = conn.createStatement()) {
 
             int rowsAffected = stmt.executeUpdate(sql);
-            out.println(Util.outSucess("Data inserted"));
+            out.println(Util.outSuccess("Data inserted"));
 
         } catch (SQLException e) {
             e.printStackTrace();

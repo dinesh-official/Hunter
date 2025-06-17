@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hunter Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+
+    <!-- Flatpickr DateTime Picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            overflow-x: hidden;
+            background-color: #f8f9fa;
+            margin: 0;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 1040;
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1.5rem;
+            border-bottom: 1px solid #dee2e6;
+            flex-wrap: wrap;
+        }
+
+        .topbar .left-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .topbar .search-time-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-grow: 1;
+            justify-content: center;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .topbar .search-bar {
+            flex-grow: 2;
+        }
+
+        .topbar .search-bar input {
+            width: 100%;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 1.5rem;
+        }
+
+        .topbar .time-range {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .topbar .right-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            bottom: 0;
+            width: 240px;
+            background-color: #ffffff;
+            border-right: 1px solid #dee2e6;
+            transition: width 0.3s ease;
+            overflow-x: hidden;
+            z-index: 1030;
+        }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+        .sidebar .nav-link {
+            color: #495057;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background-color: #e9ecef;
+            font-weight: bold;
+        }
+
+        .sidebar .nav-link .material-icons {
+            font-size: 24px;
+            margin-right: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .link-text {
+            white-space: nowrap;
+        }
+
+        .sidebar.collapsed .nav-link {
+            justify-content: center;
+            padding: 0.75rem 0;
+        }
+
+        .sidebar.collapsed .nav-link .material-icons {
+            margin-right: 0;
+        }
+
+        .sidebar.collapsed .link-text {
+            display: none;
+        }
+
+        .main {
+            margin-left: 240px;
+            transition: margin-left 0.3s ease;
+            padding: 2rem;
+        }
+
+        .main.expanded {
+            margin-left: 70px;
+        }
+
+        .card {
+            border: none;
+            border-radius: 0.75rem;
+        }
+
+        .table thead {
+            background-color: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar" id="topbar">
+    <div class="left-section">
+        <span class="material-icons" id="toggleSidebar">menu</span>
+        <span class="material-icons">settings</span>
+        <span class="fw-bold">Hunter</span>
+    </div>
+
+    <div class="search-time-wrapper">
+        <div class="search-bar">
+            <input type="text" placeholder="Search...">
+        </div>
+        <div class="time-range">
+            <label for="fromDateTime" class="form-label mb-0">From:</label>
+            <input type="text" id="fromDateTime" class="form-control form-control-sm">
+            <label for="toDateTime" class="form-label mb-0">To:</label>
+            <input type="text" id="toDateTime" class="form-control form-control-sm">
+            <button class="btn btn-sm btn-outline-primary ms-2" id="applyTime">Apply</button>
+        </div>
+    </div>
+
+    <div class="right-section">
+        <span class="material-icons">save</span>
+        <span class="material-icons">account_circle</span>
+    </div>
+</div>
+
+<!-- Sidebar -->
+<nav id="sidebar" class="sidebar">
+    <ul class="nav flex-column mt-3">
+        <li class="nav-item">
+            <a class="nav-link" href="/">
+                <span class="material-icons">dashboard</span>
+                <span class="link-text">Dashboard</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="/ssh">
+                <span class="material-icons">vpn_key</span>
+                <span class="link-text">SSH</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="/outbound">
+                <span class="material-icons">outbound</span>
+                <span class="link-text">Outbound</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="/bandwidth">
+                <span class="material-icons">network_check</span>
+                <span class="link-text">Bandwidth</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="/openports">
+                <span class="material-icons">dns</span>
+                <span class="link-text">Open Ports</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="/config">
+                <span class="material-icons">settings</span>
+                <span class="link-text">Config</span>
+            </a>
+        </li>
+    </ul>
+</nav>
+
+<!-- Main Content -->
+<main id="mainContent" class="main">
+    <h1 class="mb-4">🚀 Hunter Alert Dashboard</h1>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>IP Address</th>
+                    <th>Flow Count</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>192.168.1.10</td>
+                    <td>1520</td>
+                    <td><span>🔴 Alert</span></td>
+                </tr>
+                <tr>
+                    <td>10.0.0.5</td>
+                    <td>870</td>
+                    <td><span>🟢 Normal</span></td>
+                </tr>
+                <tr>
+                    <td>172.16.0.22</td>
+                    <td>2230</td>
+                    <td><span>🔴 Alert</span></td>
+                </tr>
+                <tr>
+                    <td>192.168.2.14</td>
+                    <td>960</td>
+                    <td><span>🟢 Normal</span></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    const sidebar = document.getElementById("sidebar");
+    const mainContent = document.getElementById("mainContent");
+    const toggleBtn = document.getElementById("toggleSidebar");
+    const topbar = document.getElementById("topbar");
+
+    toggleBtn.addEventListener("click", function () {
+        sidebar.classList.toggle("collapsed");
+        mainContent.classList.toggle("expanded");
+    });
+
+    flatpickr("#fromDateTime", {
+        enableTime: true,
+        time_24hr: true,
+        dateFormat: "Y-m-d H:i",
+        defaultDate: new Date(new Date().getTime() - 60 * 60 * 1000)
+    });
+
+    flatpickr("#toDateTime", {
+        enableTime: true,
+        time_24hr: true,
+        dateFormat: "Y-m-d H:i",
+        defaultDate: new Date()
+    });
+
+    document.addEventListener("click", function (event) {
+        const isInsideSidebar = sidebar.contains(event.target);
+        const isInsideTopbar = topbar.contains(event.target);
+        const isSidebarCollapsed = sidebar.classList.contains("collapsed");
+
+        if (!isInsideSidebar && !isInsideTopbar && !isSidebarCollapsed) {
+            sidebar.classList.add("collapsed");
+            mainContent.classList.add("expanded");
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hunter - Config</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+
+    <!-- Flatpickr -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <!-- Inside <style> tag in your <head> -->
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            overflow-x: hidden;
+            background-color: #f8f9fa;
+            margin: 0;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 1040;
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1.5rem;
+            border-bottom: 1px solid #dee2e6;
+            flex-wrap: wrap;
+        }
+
+        .topbar .left-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .topbar .search-time-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-grow: 1;
+            justify-content: center;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .topbar .search-bar {
+            flex-grow: 2;
+        }
+
+        .topbar .search-bar input {
+            width: 100%;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 1.5rem;
+        }
+
+        .topbar .time-range {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .topbar .right-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            bottom: 0;
+            width: 240px;
+            background-color: #ffffff;
+            border-right: 1px solid #dee2e6;
+            transition: width 0.3s ease;
+            overflow-x: hidden;
+            z-index: 1030;
+        }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+        .sidebar .nav-link {
+            color: #495057;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background-color: #e9ecef;
+            font-weight: bold;
+        }
+
+        .sidebar .nav-link .material-icons {
+            font-size: 24px;
+            margin-right: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .link-text {
+            white-space: nowrap;
+        }
+
+        .sidebar.collapsed .nav-link {
+            justify-content: center;
+            padding: 0.75rem 0;
+        }
+
+        .sidebar.collapsed .nav-link .material-icons {
+            margin-right: 0;
+        }
+
+        .sidebar.collapsed .link-text {
+            display: none;
+        }
+
+        .main {
+            margin-left: 240px;
+            transition: margin-left 0.3s ease;
+            padding: 2rem;
+        }
+
+        .main.expanded {
+            margin-left: 70px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 70vh;
+            font-family: monospace;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #ced4da;
+            background-color: #fff;
+        }
+
+        /* ✅ Smaller Chip Buttons */
+        .nav-pills .nav-link {
+            min-height: 24px;
+            font-size: 0.8rem;
+            border-radius: 999px;
+            color: #495057;
+            background-color: transparent;
+            transition: background-color 0.3s, color 0.3s;
+            padding: 0.25rem 0.75rem;
+            font-weight: 500;
+            border: 1px solid #dee2e6;
+            margin-right: 0.4rem;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: #e7f1ff !important;
+            color: #0d6efd !important;
+            border-color: #0d6efd !important;
+            box-shadow: inset 0 0 0 1px #0d6efd;
+        }
+    </style>
+
+
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar" id="topbar">
+    <div class="left-section">
+        <span class="material-icons" id="toggleSidebar">menu</span>
+        <span class="material-icons">settings</span>
+        <span class="fw-bold">Hunter</span>
+    </div>
+
+    <div class="search-time-wrapper">
+        <div class="search-bar">
+            <input type="text" placeholder="Search...">
+        </div>
+        <div class="time-range">
+            <label for="fromDateTime" class="form-label mb-0">From:</label>
+            <input type="text" id="fromDateTime" class="form-control form-control-sm">
+            <label for="toDateTime" class="form-label mb-0">To:</label>
+            <input type="text" id="toDateTime" class="form-control form-control-sm">
+            <button class="btn btn-sm btn-outline-primary ms-2" id="applyTime">Apply</button>
+        </div>
+    </div>
+
+    <div class="right-section">
+        <span class="material-icons">save</span>
+        <span class="material-icons">account_circle</span>
+    </div>
+</div>
+
+<!-- Sidebar -->
+<nav id="sidebar" class="sidebar">
+    <ul class="nav flex-column mt-3">
+        <li class="nav-item">
+            <a class="nav-link" href="/">
+                <span class="material-icons">dashboard</span>
+                <span class="link-text">Dashboard</span>
+            </a>
+            <a class="nav-link" href="/ssh">
+                <span class="material-icons">vpn_key</span>
+                <span class="link-text">SSH</span>
+            </a>
+            <a class="nav-link" href="/outbound">
+                <span class="material-icons">outbound</span>
+                <span class="link-text">Outbound</span>
+            </a>
+            <a class="nav-link" href="/bandwidth">
+                <span class="material-icons">network_check</span>
+                <span class="link-text">Bandwidth</span>
+            </a>
+            <a class="nav-link" href="/openports">
+                <span class="material-icons">dns</span>
+                <span class="link-text">Open Ports</span>
+            </a>
+            <a class="nav-link active" href="/config">
+                <span class="material-icons">settings</span>
+                <span class="link-text">Config</span>
+            </a>
+        </li>
+    </ul>
+</nav>
+
+<!-- Main Content -->
+<main id="mainContent" class="main">
+    <h2 class="mb-4">⚙️ Application Configuration</h2>
+    <form method="post" action="/config/save">
+
+        <div class="card shadow-sm p-4 mb-4">
+            <!-- Chip Navigation -->
+            <!-- Replace your existing chip nav-pills and tab-content section with the following -->
+            <!-- Chips Section -->
+            <ul class="nav nav-pills mb-3 small-chips" id="configTab" role="tablist">
+                <li class="nav-item me-2" role="presentation">
+                    <button class="nav-link active" id="chip1-tab" data-bs-toggle="pill" data-bs-target="#chip1" type="button" role="tab">MySQL</button>
+                </li>
+                <li class="nav-item me-2" role="presentation">
+                    <button class="nav-link" id="chipCHBD-tab" data-bs-toggle="pill" data-bs-target="#chipCHBD" type="button" role="tab">CHBD</button>
+                </li>
+                <li class="nav-item me-2" role="presentation">
+                    <button class="nav-link" id="chipSSH-tab" data-bs-toggle="pill" data-bs-target="#chipSSH" type="button" role="tab">SSH</button>
+                </li>
+                <li class="nav-item me-2" role="presentation">
+                    <button class="nav-link" id="chipOutbound-tab" data-bs-toggle="pill" data-bs-target="#chipOutbound" type="button" role="tab">Outbound</button>
+                </li>
+                <li class="nav-item me-2" role="presentation">
+                    <button class="nav-link" id="chipOpenPorts-tab" data-bs-toggle="pill" data-bs-target="#chipOpenPorts" type="button" role="tab">Open Ports</button>
+                </li>
+                <li class="nav-item me-2" role="presentation">
+                    <button class="nav-link" id="chipMail-tab" data-bs-toggle="pill" data-bs-target="#chipMail" type="button" role="tab">Mail</button>
+                </li>
+                <li class="nav-item me-2" role="presentation">
+                    <button class="nav-link" id="chipAdvanced-tab" data-bs-toggle="pill" data-bs-target="#chip2" type="button" role="tab">Scheduler</button>
+                </li>
+                <li class="nav-item me-2" role="presentation">
+                    <button class="nav-link" id="chipRawConfig-tab" data-bs-toggle="pill" data-bs-target="#chip3" type="button" role="tab">Raw Config</button>
+                </li>
+            </ul>
+
+            <!-- Tab Content Section -->
+            <div class="tab-content" id="configTabContent">
+                <div class="tab-pane fade show active" id="chip1" role="tabpanel">
+                    <!-- MySQL -->
+                    <div class="mb-3">
+                        <label for="mysqlIp" class="form-label">MySQL IP</label>
+                        <input type="text" class="form-control" id="mysqlIp" name="mysqlIp" placeholder="127.0.0.1" th:value="${mysqlIp}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="mysqlUser" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="mysqlUser" name="mysqlUser" placeholder="root" th:value="${mysqlUser}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="mysqlPass" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="mysqlPass" name="mysqlPass" placeholder="••••••••" th:value="${mysqlPass}">
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="chipCHBD" role="tabpanel">
+                        <div class="mb-3">
+                            <label for="clickhouseIp" class="form-label">ClickHouse IP</label>
+                            <input type="text" class="form-control" id="clickhouseIp" name="clickhouseIp" placeholder="127.0.0.1" th:value="${clickhouseIp}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="clickhouseUser" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="clickhouseUser" name="clickhouseUser" placeholder="default" th:value="${clickhouseUser}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="clickhousePass" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="clickhousePass" name="clickhousePass" placeholder="••••••••" th:value="${clickhousePass}">
+                    </div>
+
+                </div>
+
+                <div class="tab-pane fade" id="chipSSH" role="tabpanel">
+                    <p class="text-muted">SSH configuration settings will go here.</p>
+                </div>
+
+                <div class="tab-pane fade" id="chipOutbound" role="tabpanel">
+                    <p class="text-muted">Outbound configuration settings will go here.</p>
+                </div>
+
+                <div class="tab-pane fade" id="chipOpenPorts" role="tabpanel">
+                    <p class="text-muted">Open Ports settings will go here.</p>
+                </div>
+
+                <div class="tab-pane fade" id="chipMail" role="tabpanel">
+                    <p class="text-muted">Mail configuration settings will go here.</p>
+                </div>
+
+                <div class="tab-pane fade" id="chip2" role="tabpanel">
+                    <p class="text-muted">Advanced settings can go here.</p>
+                </div>
+
+                <div class="tab-pane fade" id="chip3" role="tabpanel">
+                    <div class="mb-3">
+                        <label for="rawConfig" class="form-label">Full Configuration</label>
+                        <textarea name="properties" id="rawConfig" placeholder="Edit full configuration..." th:text="${rawConfig}"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-end mt-3">
+            <button class="btn btn-primary">💾 Save Config</button>
+        </div>
+    </form>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const sidebar = document.getElementById("sidebar");
+    const mainContent = document.getElementById("mainContent");
+    const toggleBtn = document.getElementById("toggleSidebar");
+    const topbar = document.getElementById("topbar");
+
+    toggleBtn.addEventListener("click", function () {
+        sidebar.classList.toggle("collapsed");
+        mainContent.classList.toggle("expanded");
+    });
+
+    document.addEventListener("click", function (event) {
+        const isInsideSidebar = sidebar.contains(event.target);
+        const isInsideTopbar = topbar.contains(event.target);
+        const isSidebarCollapsed = sidebar.classList.contains("collapsed");
+
+        if (!isInsideSidebar && !isInsideTopbar && !isSidebarCollapsed) {
+            sidebar.classList.add("collapsed");
+            mainContent.classList.add("expanded");
+        }
+    });
+
+    flatpickr("#fromDateTime", {
+        enableTime: true,
+        time_24hr: true,
+        dateFormat: "Y-m-d H:i",
+        defaultDate: new Date(new Date().getTime() - 60 * 60 * 1000)
+    });
+
+    flatpickr("#toDateTime", {
+        enableTime: true,
+        time_24hr: true,
+        dateFormat: "Y-m-d H:i",
+        defaultDate: new Date()
+    });
+
+    document.getElementById("applyTime").addEventListener("click", () => {
+        const from = document.getElementById("fromDateTime").value;
+        const to = document.getElementById("toDateTime").value;
+        console.log("Applied range:", from, to);
+    });
+</script>
+
+</body>
+</html>
