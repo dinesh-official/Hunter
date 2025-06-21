@@ -9,16 +9,14 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
-
-    <!-- Flatpickr DateTime Picker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
     <style>
         body {
             font-family: 'Roboto', sans-serif;
-            overflow-x: hidden;
             background-color: #f8f9fa;
             margin: 0;
+            overflow-x: hidden;
         }
 
         .topbar {
@@ -46,7 +44,6 @@
             gap: 1rem;
             flex-grow: 1;
             justify-content: center;
-            width: 100%;
             max-width: 1000px;
             margin: 0 auto;
         }
@@ -137,13 +134,29 @@
             margin-left: 70px;
         }
 
-        .card {
-            border: none;
-            border-radius: 0.75rem;
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
         }
 
-        .table thead {
-            background-color: #e9ecef;
+        .dashboard-card {
+            background: #ffffff;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .dashboard-card h5 {
+            margin: 0;
+        }
+
+        .dashboard-card .icon {
+            font-size: 32px;
+            color: #0d6efd;
         }
     </style>
 </head>
@@ -153,7 +166,7 @@
 <div class="topbar" id="topbar">
     <div class="left-section">
         <span class="material-icons" id="toggleSidebar">menu</span>
-        <span class="material-icons">settings</span>
+        <span class="material-icons">security</span>
         <span class="fw-bold">Hunter</span>
     </div>
 
@@ -179,88 +192,78 @@
 <!-- Sidebar -->
 <nav id="sidebar" class="sidebar">
     <ul class="nav flex-column mt-3">
-        <li class="nav-item">
-            <a class="nav-link" href="/">
-                <span class="material-icons">dashboard</span>
-                <span class="link-text">Dashboard</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/ssh">
-                <span class="material-icons">vpn_key</span>
-                <span class="link-text">SSH</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/outbound">
-                <span class="material-icons">outbound</span>
-                <span class="link-text">Outbound</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/bandwidth">
-                <span class="material-icons">network_check</span>
-                <span class="link-text">Bandwidth</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/openports">
-                <span class="material-icons">dns</span>
-                <span class="link-text">Open Ports</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/config">
-                <span class="material-icons">settings</span>
-                <span class="link-text">Config</span>
-            </a>
-        </li>
+        <li class="nav-item"><a class="nav-link" href="/"><span class="material-icons">dashboard</span><span class="link-text">Dashboard</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="/ssh"><span class="material-icons">vpn_key</span><span class="link-text">SSH</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="/outbound"><span class="material-icons">outbound</span><span class="link-text">Outbound</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="/bandwidth"><span class="material-icons">network_check</span><span class="link-text">Bandwidth</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="/openports"><span class="material-icons">dns</span><span class="link-text">Open Ports</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="/config"><span class="material-icons">settings</span><span class="link-text">Config</span></a></li>
     </ul>
 </nav>
 
 <!-- Main Content -->
 <main id="mainContent" class="main">
-    <h1 class="mb-4">🚀 Hunter Alert Dashboard</h1>
+    <h1 class="mb-4">Hunter Dashboard</h1>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                <tr>
-                    <th>IP Address</th>
-                    <th>Flow Count</th>
-                    <th>Status</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr>
-                    <td>192.168.1.10</td>
-                    <td>1520</td>
-                    <td><span>🔴 Alert</span></td>
-                </tr>
-                <tr>
-                    <td>10.0.0.5</td>
-                    <td>870</td>
-                    <td><span>🟢 Normal</span></td>
-                </tr>
-                <tr>
-                    <td>172.16.0.22</td>
-                    <td>2230</td>
-                    <td><span>🔴 Alert</span></td>
-                </tr>
-                <tr>
-                    <td>192.168.2.14</td>
-                    <td>960</td>
-                    <td><span>🟢 Normal</span></td>
-                </tr>
-                </tbody>
-            </table>
+    <div class="dashboard-grid">
+        <div class="dashboard-card">
+            <span class="material-icons icon">speed</span>
+            <h5>High Bandwidth</h5>
+            <p>1.2 TB</p>
+        </div>
+
+        <!-- Alerts Triggered with Slide View -->
+        <div class="dashboard-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="material-icons icon">warning</span>
+                    <h5 class="d-inline ms-2">Alerts Triggered</h5>
+                    <p class="mb-0">12</p>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#alertsDetails">
+                    View
+                </button>
+            </div>
+
+            <div class="collapse mt-3" id="alertsDetails">
+                <div class="border-top pt-2">
+                    <strong>SSH</strong>
+                    <ul class="list-unstyled mb-2">
+                        <li>2025-06-16 09:00 – Ticket #SSH123</li>
+                        <li>2025-06-16 11:20 – Ticket #SSH124</li>
+                    </ul>
+
+                    <strong>Outbound</strong>
+                    <ul class="list-unstyled mb-2">
+                        <li>2025-06-16 10:30 – Ticket #OUT001</li>
+                    </ul>
+
+                    <strong>Open Ports</strong>
+                    <ul class="list-unstyled mb-2">
+                        <li>2025-06-16 08:45 – Ticket #PORT777</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <span class="material-icons icon">dns</span>
+            <h5>Open Ports</h5>
+            <p>8</p>
+        </div>
+
+        <div class="dashboard-card">
+            <span class="material-icons icon">history</span>
+            <h5>Last Scan</h5>
+            <p>5 minutes ago</p>
         </div>
     </div>
 </main>
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
     const sidebar = document.getElementById("sidebar");
     const mainContent = document.getElementById("mainContent");
@@ -297,6 +300,5 @@
         }
     });
 </script>
-
 </body>
 </html>
