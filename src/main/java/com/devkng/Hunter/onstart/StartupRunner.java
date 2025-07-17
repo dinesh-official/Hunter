@@ -14,7 +14,7 @@ public class StartupRunner implements ApplicationRunner {
     private static final Logger logger = LoggerFactory.getLogger(StartupRunner.class);
     private final MyScheduler myScheduler;
 
-    public StartupRunner(MyScheduler myScheduler) {
+    public StartupRunner(MyScheduler myScheduler, DatabaseInitializer databaseInitializer) {
         this.myScheduler = myScheduler;
     }
 
@@ -24,4 +24,5 @@ public class StartupRunner implements ApplicationRunner {
        // myScheduler.executeSshCheck(); // clean method call, avoids scheduler annotation problems
         logger.info("SSH check");
     }
+
 }

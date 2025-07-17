@@ -4,7 +4,7 @@ package com.devkng.Hunter.service;
 
 import com.devkng.Hunter.config.ClickHouseConfig;
 import com.devkng.Hunter.config.SshConfig;
-import com.devkng.Hunter.model.FlowData;
+import com.devkng.Hunter.model.SshData;
 import com.devkng.Hunter.model.Mail;
 import com.devkng.Hunter.utility.Query;
 import com.devkng.Hunter.utility.Ssh;
@@ -42,8 +42,8 @@ public class SshServices {
 
     }
 
-    public List<FlowData> getSsh(int ipDstPort, int dstAsn, int intervalHour, int flowCountThreshold, int maxResults, int noPasswordFlag, List<Mail> mlist) {
-        List<FlowData> results = new ArrayList<>();
+    public List<SshData> getSsh(int ipDstPort, int dstAsn, int intervalHour, int flowCountThreshold, int maxResults, int noPasswordFlag, List<Mail> mlist) {
+        List<SshData> results = new ArrayList<>();
 
 
 
@@ -66,7 +66,7 @@ public class SshServices {
 
 
                 if (noPasswordFlag == 2) {
-                    results.add(new FlowData(ip, count));
+                    results.add(new SshData(ip, count));
                     if (results.size() >= maxResults) {
                         break;
                     }
@@ -75,19 +75,19 @@ public class SshServices {
 
                 if (noPass.contains(ip)) {
                     if (noPasswordFlag == 1) {
-                        results.add(new FlowData(ip, count));
+                        results.add(new SshData(ip, count));
                     }
                     continue;
                 }
 
                 if (Ssh.supportsPasswordAuth(ip)) {
                     if (noPasswordFlag == 0) {
-                        results.add(new FlowData(ip, count));
+                        results.add(new SshData(ip, count));
                     }
                 } else {
                     noPass.add(ip);
                     if (noPasswordFlag == 1) {
-                        results.add(new FlowData(ip, count));
+                        results.add(new SshData(ip, count));
                     }
                 }
 

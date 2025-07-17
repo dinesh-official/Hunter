@@ -73,6 +73,28 @@ public class Query {
         );
     }
 
+    public static String getObQuery(int filterPort, int srcAsn, int dstAsn, int intervalHours, int limit) {
+        return String.format("""
+        WITH %d AS filter_port
+        SELECT 
+            IPv4NumToString(IPV4_SRC_ADDR) AS client_ip,
+            COUNT(*) AS OB_Count,
+            COUNT(DISTINCT IPV4_DST_ADDR) AS unique_server_ips,
+            groupArray(DISTINCT IP_DST_PORT) AS destination_ports
+        FROM ntopng.flows
+        WHERE 
+            DST_ASN != %d
+            AND SRC_ASN = %d
+            AND LAST_SEEN >= now() - INTERVAL %d HOUR
+            AND (filter_port = 0 OR IP_DST_PORT = filter_port)
+        GROUP BY IPV4_SRC_ADDR
+        ORDER BY 
+            unique_server_ips DESC,  
+            OB_Count DESC
+        LIMIT %d
+        """, filterPort, dstAsn, srcAsn, intervalHours, limit);
+    }
+
 
 
 

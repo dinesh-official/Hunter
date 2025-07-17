@@ -3,7 +3,7 @@ package com.devkng.Hunter.scheduler;
 
 import com.devkng.Hunter.config.MailConfig;
 import com.devkng.Hunter.config.SshConfig;
-import com.devkng.Hunter.model.FlowData;
+import com.devkng.Hunter.model.SshData;
 import com.devkng.Hunter.model.Mail;
 import com.devkng.Hunter.service.MailService;
 import com.devkng.Hunter.service.SshServices;
@@ -83,7 +83,7 @@ public class MyScheduler {
 
     public void executeSshCheck() {
         List<Mail> mlist = null ;
-        List<FlowData> sshList = null;
+        List<SshData> sshList = null;
 
         // Fetch previously mailed records once
         mlist = mailService.fetchMailRecords("", "", "", "", sshConfig.getMail().getType(), sshConfig.getMail().getSkipDaysIfMailed());
@@ -94,7 +94,7 @@ public class MyScheduler {
 
         Set<String> mailedIps = new HashSet<>(); // Avoid duplicate sends within same run
 
-        for (FlowData flowData : sshList) {
+        for (SshData flowData : sshList) {
             String srcIp = flowData.getSrcIp();
 
             // Skip if already handled in this run
