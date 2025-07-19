@@ -1,5 +1,8 @@
 package com.devkng.Hunter.utility;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 public class Query {
 
     public static String getMail(int daysAgo, String vmId, String vmOwner, String vmIp, String vmName, String mailType) {
@@ -94,6 +97,77 @@ public class Query {
         LIMIT %d
         """, filterPort, dstAsn, srcAsn, intervalHours, limit);
     }
+
+    public static String getBandwidthQuery(int dstAsn, int intervalHours, long byteThreshold, int limit) {
+        return String.format("""
+        SELECT
+          IPv4NumToString(IPV4_SRC_ADDR) AS src_ip,
+          DST_ASN,
+          SUM(TOTAL_BYTES) AS total_bytes,
+          ROUND(SUM(TOTAL_BYTES) / 1024.0 / 1024.0 / 1024.0, 2) AS total_gb
+        FROM ntopng.flows
+        WHERE LAST_SEEN >= (now() - toIntervalHour(%d))
+          AND DST_ASN = %d
+        GROUP BY src_ip, DST_ASN
+        HAVING SUM(TOTAL_BYTES) > %d
+        ORDER BY total_bytes DESC
+        LIMIT %d;
+        """,
+                intervalHours, dstAsn, byteThreshold, limit);
+    }
+
+
+    public static String getBandwidthQuery2(int dstAsn, int intervalHours, long mBThreshold, int limit) {
+        long minBytes = mBThreshold * 1024L * 1024L;
+
+        return String.format("""
+            SELECT
+              IPv4NumToString(IPV4_SRC_ADDR) AS src_ip,
+              DST_ASN,
+              SUM(TOTAL_BYTES) AS total_bytes,
+              ROUND(SUM(TOTAL_BYTES) / 1024.0 / 1024.0, 2) AS total_mb
+            FROM ntopng.flows
+            WHERE LAST_SEEN >= (now() - toIntervalHour(%d))
+              AND DST_ASN = %d
+            GROUP BY src_ip, DST_ASN
+            HAVING SUM(TOTAL_BYTES) > %d
+            ORDER BY total_bytes DESC
+            LIMIT %d
+            """,
+                intervalHours, dstAsn, minBytes, limit
+        );
+    }
+
+    public static String getIncomingTrafficQuery(
+            int dstAsn,
+            List<Integer> dstPorts,
+            int minRequestCount,
+            int intervalHours,
+            int limit
+    ) {
+        // If port list is empty or null, skip filtering by port (allow all)
+        String portsCondition = (dstPorts == null || dstPorts.isEmpty())
+                ? "TRUE"
+                : "IP_DST_PORT IN (" + dstPorts.stream().map(String::valueOf).collect(Collectors.joining(",")) + ")";
+
+        return String.format("""
+        SELECT
+            IPv4NumToString(IPV4_DST_ADDR) AS ip,
+            COUNT(*) AS incoming_request_count,
+            COUNT(DISTINCT IPV4_SRC_ADDR) AS unique_source_ips
+        FROM ntopng.flows
+        WHERE DST_ASN = %d
+          AND %s
+          AND LAST_SEEN >= (now() - toIntervalHour(%d))
+        GROUP BY IPV4_DST_ADDR
+        HAVING incoming_request_count > %d
+        ORDER BY incoming_request_count DESC
+        LIMIT %d
+        """, dstAsn, portsCondition, intervalHours, minRequestCount, limit);
+    }
+
+
+
 
 
 

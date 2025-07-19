@@ -35,7 +35,7 @@ public class SshServices {
         config.setJdbcUrl(db.getUrl());
         config.setUsername(db.getUsername());
         config.setPassword(db.getPassword());
-        config.setMaximumPoolSize(10);  // Adjust as needed
+        config.setMaximumPoolSize(10);
 
         this.sshConfig = sshConfig;
         this.dataSource = new HikariDataSource(config);
@@ -44,8 +44,6 @@ public class SshServices {
 
     public List<SshData> getSsh(int ipDstPort, int dstAsn, int intervalHour, int flowCountThreshold, int maxResults, int noPasswordFlag, List<Mail> mlist) {
         List<SshData> results = new ArrayList<>();
-
-
 
 
         String query = Query.getPassword(ipDstPort, dstAsn, intervalHour, flowCountThreshold);
