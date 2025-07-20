@@ -2,6 +2,7 @@ package com.devkng.Hunter.scheduler;
 
 
 import com.devkng.Hunter.config.MailConfig;
+import com.devkng.Hunter.config.OutboundConfig;
 import com.devkng.Hunter.config.SshConfig;
 import com.devkng.Hunter.model.SshData;
 import com.devkng.Hunter.model.Mail;
@@ -36,51 +37,79 @@ public class MyScheduler {
     private final DataSource dataSource;
     private final SshConfig sshConfig;
     private final MailConfig mailConfig;
+    private final OutboundConfig outboundConfig ;
     private boolean hasLoggedOnce = false;
+    private boolean hasLoggedOutbound = false ;
     // ANSI color codes
 
 
 
 
-    public MyScheduler(JavaMailSender mailSender, SshServices sshServices, MailService mailService, DataSource dataSource, SshConfig sshConfig, MailConfig mailConfig) {
+    public MyScheduler(JavaMailSender mailSender, SshServices sshServices, MailService mailService, DataSource dataSource, SshConfig sshConfig, MailConfig mailConfig, OutboundConfig outboundConfig) {
         this.mailSender = mailSender;
         this.sshServices = sshServices;
         this.mailService = mailService;
         this.dataSource = dataSource;
         this.sshConfig = sshConfig;
         this.mailConfig = mailConfig;
-
+        this.outboundConfig = outboundConfig;
     }
 
     @Scheduled(cron = "${schedule.ssh}")
-    public void runDailyTask() {
+    public void runSshTask() {
         if (!hasLoggedOnce) {
-
-            out.println(" Loaded SSH Configuration:");
-            out.println(" • Port: " + sshConfig.getPort());
-            out.println(" • ASN: " + sshConfig.getAsn());
-            out.println(" • Duration (hours): " + sshConfig.getDuration().getHours());
-            out.println(" • Min Flow Count: " + sshConfig.getMinFlowCount());
-            out.println(" • Response Count: " + sshConfig.getResponseCount());
-            out.println(" • Password-based Condition: " + sshConfig.getPasswordBasedCondition());
-            out.println(" • Mail Type: " + sshConfig.getMail().getType());
-            out.println(" • Skip Mail if sent in last " + sshConfig.getMail().getSkipDaysIfMailed() + " day(s)");
-            out.println(" • Mail Enabled: " + sshConfig.getMail().isEnabled());
-
-            if (sshConfig.getMail().isEnabled()) {
-                out.println("SSH Mail Alert is ENABLED. Executing SSH flow check to send mail...");
-            } else {
-                out.println("SSH Mail Alert skipped due to configuration.");
-            }
-            hasLoggedOnce = true; // ensure this message logs only once
+            logSshConfig();
+            hasLoggedOnce = true;
         }
-
         if (sshConfig.getMail().isEnabled()) {
             executeSshCheck();
         }
-
     }
 
+    @Scheduled(cron = "${schedule.outbound}")
+    public void runOutboundTask() {
+        if (!hasLoggedOutbound) {
+            logOutboundConfig();
+            hasLoggedOutbound = true;
+        }
+        if (outboundConfig.getMail().isEnabled()) {
+            executeOutboundCheck();
+        }
+    }
+
+    private void logSshConfig() {
+        out.println(" Loaded SSH Configuration:");
+        out.println(" • Port: " + sshConfig.getPort());
+        out.println(" • ASN: " + sshConfig.getAsn());
+        out.println(" • Duration (hours): " + sshConfig.getDuration().getHours());
+        out.println(" • Min Flow Count: " + sshConfig.getMinFlowCount());
+        out.println(" • Response Count: " + sshConfig.getResponseCount());
+        out.println(" • Password-based Condition: " + sshConfig.getPasswordBasedCondition());
+        out.println(" • Mail Type: " + sshConfig.getMail().getType());
+        out.println(" • Skip Mail if sent in last " + sshConfig.getMail().getSkipDaysIfMailed() + " day(s)");
+        out.println(" • Mail Enabled: " + sshConfig.getMail().isEnabled());
+    }
+
+    private void logOutboundConfig() {
+        out.println(" Loaded OUTBOUND Configuration:");
+        out.println(" • Port: " + outboundConfig.getPort());
+        out.println(" • Destination ASN: " + outboundConfig.getDstAsn());
+        out.println(" • Source ASN: " + outboundConfig.getSrcAsn());
+        out.println(" • Duration (hours): " + outboundConfig.getDuration().getHours());
+        out.println(" • Response Count: " + outboundConfig.getResponseCount());
+        out.println(" • Min OB Count: " + outboundConfig.getMinObCount());
+        out.println(" • Min Unique Server IPs: " + outboundConfig.getMinUniqueServerIps());
+        out.println(" • Client Country: " + outboundConfig.getClientCountry());
+        out.println(" • Server Country: " + outboundConfig.getServerCountry());
+        out.println(" • Mail Type: " + outboundConfig.getMail().getType());
+        out.println(" • Skip Mail if sent in last " + outboundConfig.getMail().getSkipDaysIfMailed() + " day(s)");
+        out.println(" • Mail Enabled: " + outboundConfig.getMail().isEnabled());
+    }
+
+    private void executeOutboundCheck() {
+        out.println("OUTBOUND");
+
+    }
     public void executeSshCheck() {
         List<Mail> mlist = null ;
         List<SshData> sshList = null;
@@ -92,7 +121,7 @@ public class MyScheduler {
         out.println("List Size: " + sshList.size());
 
 
-        Set<String> mailedIps = new HashSet<>(); // Avoid duplicate sends within same run
+        Set<String> mailedIps = new HashSet<>();
 
         for (SshData flowData : sshList) {
             String srcIp = flowData.getSrcIp();

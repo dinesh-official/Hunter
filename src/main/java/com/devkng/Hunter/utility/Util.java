@@ -20,4 +20,5 @@ public class Util {
     public static String outSuccess(String s) {
         return GREEN + s + RESET;
     }
+
 }
