@@ -53,7 +53,6 @@ public class OutboundService {
                         .filter(p -> !p.isEmpty())
                         .map(Integer::parseInt)
                         .collect(Collectors.toList());
-
                 stat.setDestinationPorts(ports);
                 results.add(stat);
             }
