@@ -25,6 +25,10 @@ import java.sql.Statement;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 import static java.lang.System.out;
 
@@ -104,7 +108,7 @@ public class MyScheduler {
             hasLoggedOnce = true;
         }
         if (openPortsConfig.getMail().isEnabled()) {
-            executeOpenPortsCheck();
+           executeOpenPortsCheck();
         }
     }
 
@@ -186,7 +190,7 @@ public class MyScheduler {
 
             // Prepare mail content
             String subject = Template.getSSHCybSubject(srcIp);
-            String body = Template.getSSHCybBody(srcIp, "", sshConfig.getPort());
+            String body = Template.getSSHCybBody(srcIp, "", String.valueOf(sshConfig.getPort()));
 
             // Send mail (retry once on failure)
             boolean sent = sendMail(mailConfig.getTo(), subject, body ,mailConfig.getCc());
@@ -218,8 +222,30 @@ public class MyScheduler {
     private void executeBandwidthCheck() {
     }
 
+    // Calculate available processors
+    int availableCores = Runtime.getRuntime().availableProcessors();
+
+    // Use 90% of the available cores for thread count
+    int threadCount = (int) Math.max(1, Math.floor(availableCores * 0.9));
+
+    // Initialize the thread pool dynamically
+    private final ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+    // Tune thread pool size as per CPU cores
+
     private void executeOpenPortsCheck() {
-        // Step 1: Fetch open ports data
+        log.info(Util.outSuccess("🔍 Executing the open port method"));
+        log.info("⚙️ Initializing ExecutorService with {} threads (90% of {} cores)", threadCount, availableCores);
+        // Step 1: Pre-fetch mail records to avoid repeated DB calls
+        List<Mail> mailList = mailService.fetchMailRecords("", "", "", "", "", openPortsConfig.getMail().getSkipDaysIfMailed());
+
+        Set<String> alreadyMailedCache = mailList.stream()
+                .map(m -> m.getVmIp() + "->" + m.getMailType())
+                .collect(Collectors.toSet());
+
+        long queryStart = System.currentTimeMillis();
+
+        // Step 2: Fetch open ports data
         List<OpenPortsData> openPortsList = openPortsService.getIncomingData(
                 openPortsConfig.getDstAsn(),
                 openPortsConfig.getPorts(),
@@ -228,56 +254,68 @@ public class MyScheduler {
                 openPortsConfig.getResponseCount(),
                 true
         );
+        long queryEnd = System.currentTimeMillis();
+        log.info(Util.outSuccess("OpenPorts query took " + (queryEnd - queryStart) + "ms"));
         log.info(Util.outSuccess("Open Ports List Size: " + openPortsList.size()));
 
-        Set<String> mailedIps = new HashSet<>();
+        CountDownLatch latch = new CountDownLatch(openPortsList.size());
 
-        // Step 2: Process each IP entry
         for (OpenPortsData data : openPortsList) {
-            String ip = data.getIp();
-            List<Integer> openPorts = data.getOpenPorts();
-            boolean alreadyMailed = false;
-
-            // Step 3: Check if mail already sent for any of the ports
-            for (Integer port : openPorts) {
-                String type = openPortsConfig.getMail().getType() + "-" + port;
-                List<Mail> mailHistory = mailService.fetchMailRecords("", "", ip, "", type, openPortsConfig.getMail().getSkipDaysIfMailed());
-                if (!mailHistory.isEmpty()) {
-                    alreadyMailed = true;
-                    log.info("Skipping IP: " + ip + " for Port: " + port + " (Already mailed recently) " + type);
-                    break;
-                }
-            }
-
-            if (alreadyMailed) continue;
-
-            // Step 4: Prepare mail content
-            String subject = Template.getSSHCybSubject(ip);
-            String body = Template.getSSHCybBody(ip, null, openPorts.size());
-
-            // Step 5: Send mail (with retry)
-            boolean sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
-            if (!sent) {
-                log.warn("First attempt failed, retrying for IP: " + ip);
+            executor.execute(() -> {
                 try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
-            }
+                    String ip = data.getIp();
+                    List<Integer> openPorts = data.getOpenPorts();
 
-            // Step 6: Handle success or failure
-            if (sent) {
-                for (Integer port : openPorts) {
-                    String type = openPortsConfig.getMail().getType() + "-" + port;
-                    insertMailRecord("", "", ip, "", type);
-                    log.info("Open port Mail sent to IP: " + ip + " (Port: " + port + ") " + type);
+                    // Check if any port has already been mailed
+                    boolean alreadyMailed = openPorts.stream()
+                            .map(port -> ip + "->" + openPortsConfig.getMail().getType() + "-" + port)
+                            .anyMatch(alreadyMailedCache::contains);
+
+                    if (alreadyMailed) {
+                        log.info("Skipping already mailed IP: " + ip);
+                        return;
+                    }
+
+                    // Prepare subject & body
+                    String subject = Template.getSSHCybSubject(ip);
+                    String portList = openPorts.stream()
+                            .map(String::valueOf)
+                            .collect(Collectors.joining(","));
+                    String body = Template.getSSHCybBody(ip, null, openPorts.toString());
+
+                    // Send mail with retry
+                    boolean sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+                    if (!sent) {
+                        log.warn("First attempt failed for IP: " + ip + " - Retrying...");
+                        Thread.sleep(2000);
+                        sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+                    }
+
+                    if (sent) {
+                        for (Integer port : openPorts) {
+                            String type = openPortsConfig.getMail().getType() + "-" + port;
+                            insertMailRecord("", "", ip, "", type);
+                            alreadyMailedCache.add(ip + "-" + type);
+                            log.info("Mail sent to IP: " + ip + " for Port: " + port);
+                        }
+                    } else {
+                        log.error("Mail failed after retries for IP: " + ip);
+                    }
+
+                } catch (Exception e) {
+                    log.error("Exception while processing IP: " + data.getIp(), e);
+                } finally {
+                    latch.countDown();
                 }
-                mailedIps.add(ip);
-            } else {
-                log.error("Failed to send mail to IP: " + ip + " after 2 attempts");
-            }
+            });
+        }
+
+        try {
+            latch.await();
+            log.info(Util.outSuccess("All open port checks completed."));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Open port scanning interrupted", e);
         }
     }
 

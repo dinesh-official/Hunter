@@ -6,7 +6,7 @@ public class Template {
         return "Urgent: Secure Your node against Cyber Attacks - " + ip;
     }
 
-    public static String getSSHCybBody(String ip, String vmName, int port) {
+    public static String getSSHCybBody(String ip, String vmName, String port) {
         return """
         <p>Dear Customer,</p>
 
@@ -14,7 +14,7 @@ public class Template {
 
         <p><strong>Node IP:</strong> %s<br/>
         <strong>Node Name:</strong> %s<br/>
-        <strong>Target Ports:</strong> %d</p>
+        <strong>Target Ports:</strong> %s</p>
 
         <p>Our monitoring systems have detected repeated login attempts and unauthorized access requests targeting your server. As a result, there is significantly high resource usage on the node, causing instability to the infrastructure hosting the compute node.</p>
 
