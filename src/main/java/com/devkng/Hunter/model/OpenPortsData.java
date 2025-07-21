@@ -3,15 +3,15 @@ package com.devkng.Hunter.model;
 import java.util.ArrayList;
 import java.util.List;
 
-public class IncomingData {
+public class OpenPortsData {
     private String ip;
     private int requestCount;
     private int uniqueSourceIps;
     private List<Integer> openPorts = new ArrayList<>();
 
-    public IncomingData() {}
+    public OpenPortsData() {}
 
-    public IncomingData(String ip, int requestCount, int uniqueSourceIps) {
+    public OpenPortsData(String ip, int requestCount, int uniqueSourceIps) {
         this.ip = ip;
         this.requestCount = requestCount;
         this.uniqueSourceIps = uniqueSourceIps;

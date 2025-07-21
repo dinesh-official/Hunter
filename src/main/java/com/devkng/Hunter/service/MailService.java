@@ -28,6 +28,7 @@ public class MailService {
         config.setJdbcUrl(db.getUrl());
         config.setUsername(db.getUsername());
         config.setPassword(db.getPassword());
+        config.setConnectionTimeout(5000);
         config.setMaximumPoolSize(10); // adjust as needed
 
         this.dataSource = new HikariDataSource(config);

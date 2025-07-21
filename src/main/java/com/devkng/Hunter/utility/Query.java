@@ -25,7 +25,11 @@ public class Query {
             sql.append(" AND vmName = '").append(vmName).append("'");
         }
         if (mailType != null && !mailType.isEmpty()) {
-            sql.append(" AND mailType = '").append(mailType).append("'");
+            if (mailType.contains("%") || mailType.contains("_")) {
+                sql.append(" AND mailType LIKE '").append(mailType).append("'");
+            } else {
+                sql.append(" AND mailType = '").append(mailType).append("'");
+            }
         }
 
         sql.append(" ORDER BY createdAd DESC");

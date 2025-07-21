@@ -1,17 +1,17 @@
 package com.devkng.Hunter.scheduler;
 
 
-import com.devkng.Hunter.config.MailConfig;
-import com.devkng.Hunter.config.OutboundConfig;
-import com.devkng.Hunter.config.SshConfig;
+import com.devkng.Hunter.config.*;
+import com.devkng.Hunter.model.OpenPortsData;
 import com.devkng.Hunter.model.SshData;
 import com.devkng.Hunter.model.Mail;
-import com.devkng.Hunter.service.MailService;
-import com.devkng.Hunter.service.SshServices;
+import com.devkng.Hunter.service.*;
 import com.devkng.Hunter.utility.Query;
 import com.devkng.Hunter.utility.Template;
 import com.devkng.Hunter.utility.Util;
 import jakarta.mail.internet.MimeMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashSet;
@@ -35,30 +36,37 @@ public class MyScheduler {
     private final SshServices sshServices;
     private final MailService mailService;
     private final DataSource dataSource;
+    private final OutboundService outboundService;
+    private final BandwidthService bandwidthService ;
+    private final OpenPortsService openPortsService ;
     private final SshConfig sshConfig;
     private final MailConfig mailConfig;
     private final OutboundConfig outboundConfig ;
+    private final BandwidthConfig bandwidthConfig ;
+    private final OpenPortsConfig openPortsConfig ;
     private boolean hasLoggedOnce = false;
-    private boolean hasLoggedOutbound = false ;
-    // ANSI color codes
+    private static final Logger log = LoggerFactory.getLogger(MyScheduler.class);
 
 
-
-
-    public MyScheduler(JavaMailSender mailSender, SshServices sshServices, MailService mailService, DataSource dataSource, SshConfig sshConfig, MailConfig mailConfig, OutboundConfig outboundConfig) {
+    public MyScheduler(JavaMailSender mailSender, SshServices sshServices, MailService mailService, DataSource dataSource, OutboundService outboundService, OpenPortsService openPortsService, BandwidthService bandwidthService, OpenPortsService openPortsService1, SshConfig sshConfig, MailConfig mailConfig, OutboundConfig outboundConfig, BandwidthConfig bandwidthConfig, OpenPortsConfig openPortsConfig) {
         this.mailSender = mailSender;
         this.sshServices = sshServices;
         this.mailService = mailService;
         this.dataSource = dataSource;
+        this.outboundService = outboundService;
+        this.bandwidthService = bandwidthService;
+        this.openPortsService = openPortsService1;
         this.sshConfig = sshConfig;
         this.mailConfig = mailConfig;
         this.outboundConfig = outboundConfig;
+        this.bandwidthConfig = bandwidthConfig;
+        this.openPortsConfig = openPortsConfig;
     }
 
     @Scheduled(cron = "${schedule.ssh}")
     public void runSshTask() {
         if (!hasLoggedOnce) {
-            logSshConfig();
+            logConfig();
             hasLoggedOnce = true;
         }
         if (sshConfig.getMail().isEnabled()) {
@@ -68,48 +76,84 @@ public class MyScheduler {
 
     @Scheduled(cron = "${schedule.outbound}")
     public void runOutboundTask() {
-        if (!hasLoggedOutbound) {
-            logOutboundConfig();
-            hasLoggedOutbound = true;
+        if (!hasLoggedOnce) {
+            logConfig();
+            hasLoggedOnce = true;
         }
         if (outboundConfig.getMail().isEnabled()) {
             executeOutboundCheck();
         }
     }
 
-    private void logSshConfig() {
-        out.println(" Loaded SSH Configuration:");
-        out.println(" • Port: " + sshConfig.getPort());
-        out.println(" • ASN: " + sshConfig.getAsn());
-        out.println(" • Duration (hours): " + sshConfig.getDuration().getHours());
-        out.println(" • Min Flow Count: " + sshConfig.getMinFlowCount());
-        out.println(" • Response Count: " + sshConfig.getResponseCount());
-        out.println(" • Password-based Condition: " + sshConfig.getPasswordBasedCondition());
-        out.println(" • Mail Type: " + sshConfig.getMail().getType());
-        out.println(" • Skip Mail if sent in last " + sshConfig.getMail().getSkipDaysIfMailed() + " day(s)");
-        out.println(" • Mail Enabled: " + sshConfig.getMail().isEnabled());
+    @Scheduled(cron = "${schedule.bandwidth}")
+    public void runBandwidthTask() {
+        if (!hasLoggedOnce) {
+            logConfig();
+            hasLoggedOnce = true;
+        }
+        if (bandwidthConfig.getMail().isEnabled()) {
+            executeBandwidthCheck();
+        }
     }
 
-    private void logOutboundConfig() {
-        out.println(" Loaded OUTBOUND Configuration:");
-        out.println(" • Port: " + outboundConfig.getPort());
-        out.println(" • Destination ASN: " + outboundConfig.getDstAsn());
-        out.println(" • Source ASN: " + outboundConfig.getSrcAsn());
-        out.println(" • Duration (hours): " + outboundConfig.getDuration().getHours());
-        out.println(" • Response Count: " + outboundConfig.getResponseCount());
-        out.println(" • Min OB Count: " + outboundConfig.getMinObCount());
-        out.println(" • Min Unique Server IPs: " + outboundConfig.getMinUniqueServerIps());
-        out.println(" • Client Country: " + outboundConfig.getClientCountry());
-        out.println(" • Server Country: " + outboundConfig.getServerCountry());
-        out.println(" • Mail Type: " + outboundConfig.getMail().getType());
-        out.println(" • Skip Mail if sent in last " + outboundConfig.getMail().getSkipDaysIfMailed() + " day(s)");
-        out.println(" • Mail Enabled: " + outboundConfig.getMail().isEnabled());
+
+    @Scheduled(cron = "${schedule.openports}")
+    public void runOpenPortsTask() {
+        if (!hasLoggedOnce) {
+            logConfig();
+            hasLoggedOnce = true;
+        }
+        if (openPortsConfig.getMail().isEnabled()) {
+            executeOpenPortsCheck();
+        }
     }
 
-    private void executeOutboundCheck() {
-        out.println("OUTBOUND");
 
+    private void logConfig() {
+        log.info(Util.outSuccess(" Loaded SSH Configuration:"));
+        log.info(" • Port: {}", sshConfig.getPort());
+        log.info(" • ASN: {}", sshConfig.getAsn());
+        log.info(" • Duration (hours): {}", sshConfig.getDuration().getHours());
+        log.info(" • Min Flow Count: {}", sshConfig.getMinFlowCount());
+        log.info(" • Response Count: {}", sshConfig.getResponseCount());
+        log.info(" • Password-based Condition: {}", sshConfig.getPasswordBasedCondition());
+        log.info(" • Mail Type: {}", sshConfig.getMail().getType());
+        log.info(" • Skip Mail if sent in last {} day(s)", sshConfig.getMail().getSkipDaysIfMailed());
+        log.info(" • Mail Enabled: {}", sshConfig.getMail().isEnabled());
+        //
+        log.info(Util.outGreen(" Loaded Outbound Configuration:"));
+        log.info(" • Port: {}", outboundConfig.getPort());
+        log.info(" • Destination ASN: {}", outboundConfig.getDstAsn());
+        log.info(" • Source ASN: {}", outboundConfig.getSrcAsn());
+        log.info(" • Duration (hours): {}", outboundConfig.getDuration().getHours());
+        log.info(" • Response Count: {}", outboundConfig.getResponseCount());
+        log.info(" • Min OB Count: {}", outboundConfig.getMinObCount());
+        log.info(" • Min Unique Server IPs: {}", outboundConfig.getMinUniqueServerIps());
+        log.info(" • Client Country: {}", outboundConfig.getClientCountry());
+        log.info(" • Server Country: {}", outboundConfig.getServerCountry());
+        log.info(" • Mail Type: {}", outboundConfig.getMail().getType());
+        log.info(" • Skip Mail if sent in last {} day(s)", outboundConfig.getMail().getSkipDaysIfMailed());
+        log.info(" • Mail Enabled: {}", outboundConfig.getMail().isEnabled());
+        //
+        log.info(Util.outGreen(" Loaded Bandwidth Configuration:"));
+        log.info(" • ASN: {}", bandwidthConfig.getDstAsn());
+        log.info(" • Duration (hours): {}", bandwidthConfig.getDuration().getHours());
+        log.info(" • Threshold (MB): {}", bandwidthConfig.getMBThreshold());
+        log.info(" • Limit: {}", bandwidthConfig.getLimit());
+        log.info(" • Mail Type: {}", bandwidthConfig.getMail().getType());
+        log.info(" • Skip Mail if sent in last {} day(s)", bandwidthConfig.getMail().getSkipDaysIfMailed());
+        log.info(" • Mail Enabled: {}", bandwidthConfig.getMail().isEnabled());
+        //
+        log.info(Util.outGreen(" Loaded Open Ports Configuration:"));
+        log.info(" • Destination ASN: {}", openPortsConfig.getDstAsn());
+        log.info(" • Interval (hours): {}", openPortsConfig.getIntervalHours());
+        log.info(" • Min Request Count: {}", openPortsConfig.getMinRequestCount());
+        log.info(" • Result Limit: {}", openPortsConfig.getResponseCount());
+        log.info(" • Mail Type: {}", openPortsConfig.getMail().getType());
+        log.info(" • Skip Mail if sent in last {} day(s)", openPortsConfig.getMail().getSkipDaysIfMailed());
+        log.info(" • Mail Enabled: {}", openPortsConfig.getMail().isEnabled());
     }
+
     public void executeSshCheck() {
         List<Mail> mlist = null ;
         List<SshData> sshList = null;
@@ -118,7 +162,7 @@ public class MyScheduler {
         mlist = mailService.fetchMailRecords("", "", "", "", sshConfig.getMail().getType(), sshConfig.getMail().getSkipDaysIfMailed());
         sshList = sshServices.getSsh(sshConfig.getPort(), sshConfig.getAsn(), sshConfig.getDuration().getHours(),
                 sshConfig.getMinFlowCount(), sshConfig.getResponseCount(), sshConfig.getPasswordBasedCondition(), mlist);
-        out.println("List Size: " + sshList.size());
+        log.info(Util.outGreen("SSH List Size: " + sshList.size()));
 
 
         Set<String> mailedIps = new HashSet<>();
@@ -128,7 +172,7 @@ public class MyScheduler {
 
             // Skip if already handled in this run
             if (mailedIps.contains(srcIp)) {
-                out.println("Duplicate IP in current run, skipping: " + srcIp);
+                log.info("Duplicate IP in current run, skipping: " + srcIp);
                 continue;
             }
 
@@ -136,7 +180,7 @@ public class MyScheduler {
             List<Mail> mailHistory = mailService.fetchMailRecords("", "", srcIp, "",
                     sshConfig.getMail().getType(), sshConfig.getMail().getSkipDaysIfMailed());
             if (Util.alreadyMailed(mailHistory, srcIp)) {
-                out.println("Skipping already mailed IP from DB: " + srcIp);
+                log.info("Skipping already mailed IP from DB: " + srcIp);
                 continue;
             }
 
@@ -147,7 +191,7 @@ public class MyScheduler {
             // Send mail (retry once on failure)
             boolean sent = sendMail(mailConfig.getTo(), subject, body ,mailConfig.getCc());
             if (!sent) {
-                out.println("First attempt failed, retrying for IP: " + srcIp);
+                log.warn("First attempt failed, retrying for IP: " + srcIp);
                 try {
                     Thread.sleep(2000); // Small wait before retry
                 } catch (InterruptedException e) {
@@ -159,12 +203,86 @@ public class MyScheduler {
             if (sent) {
                 insertMailRecord("", "", srcIp, "", sshConfig.getMail().getType());
                 mailedIps.add(srcIp);
-                out.println(Util.outSuccess("✅ Mail sent to IP: " + srcIp));
+                log.info(Util.outSuccess("SSH Mail sent to IP: " + srcIp));
             } else {
-                out.println("❌ Failed to send mail to IP: " + srcIp + " after 2 attempts");
+                log.error("Failed to send mail to IP: " + srcIp + " after 2 attempts");
             }
         }
     }
+
+
+    private void executeOutboundCheck() {
+        out.println("OUTBOUND");
+    }
+
+    private void executeBandwidthCheck() {
+    }
+
+    private void executeOpenPortsCheck() {
+        // Step 1: Fetch open ports data
+        List<OpenPortsData> openPortsList = openPortsService.getIncomingData(
+                openPortsConfig.getDstAsn(),
+                openPortsConfig.getPorts(),
+                openPortsConfig.getMinRequestCount(),
+                openPortsConfig.getIntervalHours(),
+                openPortsConfig.getResponseCount(),
+                true
+        );
+        log.info(Util.outSuccess("Open Ports List Size: " + openPortsList.size()));
+
+        Set<String> mailedIps = new HashSet<>();
+
+        // Step 2: Process each IP entry
+        for (OpenPortsData data : openPortsList) {
+            String ip = data.getIp();
+            List<Integer> openPorts = data.getOpenPorts();
+            boolean alreadyMailed = false;
+
+            // Step 3: Check if mail already sent for any of the ports
+            for (Integer port : openPorts) {
+                String type = openPortsConfig.getMail().getType() + "-" + port;
+                List<Mail> mailHistory = mailService.fetchMailRecords("", "", ip, "", type, openPortsConfig.getMail().getSkipDaysIfMailed());
+                if (!mailHistory.isEmpty()) {
+                    alreadyMailed = true;
+                    log.info("Skipping IP: " + ip + " for Port: " + port + " (Already mailed recently) " + type);
+                    break;
+                }
+            }
+
+            if (alreadyMailed) continue;
+
+            // Step 4: Prepare mail content
+            String subject = Template.getSSHCybSubject(ip);
+            String body = Template.getSSHCybBody(ip, null, openPorts.size());
+
+            // Step 5: Send mail (with retry)
+            boolean sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+            if (!sent) {
+                log.warn("First attempt failed, retrying for IP: " + ip);
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+            }
+
+            // Step 6: Handle success or failure
+            if (sent) {
+                for (Integer port : openPorts) {
+                    String type = openPortsConfig.getMail().getType() + "-" + port;
+                    insertMailRecord("", "", ip, "", type);
+                    log.info("Open port Mail sent to IP: " + ip + " (Port: " + port + ") " + type);
+                }
+                mailedIps.add(ip);
+            } else {
+                log.error("Failed to send mail to IP: " + ip + " after 2 attempts");
+            }
+        }
+    }
+
+
+
 
 
     public Boolean sendMail(String to, String subject, String body, String... cc) {
@@ -183,11 +301,11 @@ public class MyScheduler {
             helper.setText(body, true);
 
             mailSender.send(message);
-            out.println(Util.outSuccess("send email: " + to));
+            log.info(Util.outSuccess("send email: " + to));
             return true;
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Failed to send email: " + e.getMessage());
+            log.error(Util.outRed("Failed to send email: " + e.getMessage()));
             return false;
         }
     }
@@ -200,7 +318,7 @@ public class MyScheduler {
              Statement stmt = conn.createStatement()) {
 
             int rowsAffected = stmt.executeUpdate(sql);
-            out.println(Util.outSuccess("Data inserted"));
+            out.println(Util.outYellow("Data inserted"));
 
         } catch (SQLException e) {
             e.printStackTrace();

@@ -3,15 +3,12 @@ package com.devkng.Hunter.controller;
 
 import com.devkng.Hunter.model.*;
 import com.devkng.Hunter.service.*;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-
-import static com.devkng.Hunter.utility.Query.getIncomingTrafficQuery;
 
 @RestController
 @RequestMapping("/api")
@@ -21,15 +18,15 @@ public class ApiController {
     private final OutboundService outboundService ;
     private final MailService mailService;
     private final BandwidthService bandwidthService;
-    private final IncomingService incomingService;
+    private final OpenPortsService openPortsService;
     private List<Mail> mailList;
 
-    public ApiController(SshServices flowDataService, OutboundService outboundService, MailService mailService, BandwidthService bandwidthService, IncomingService incomingService) {
+    public ApiController(SshServices flowDataService, OutboundService outboundService, MailService mailService, BandwidthService bandwidthService, OpenPortsService openPortsService) {
         this.flowDataService = flowDataService;
         this.outboundService = outboundService;
         this.mailService = mailService;
         this.bandwidthService = bandwidthService;
-        this.incomingService = incomingService;
+        this.openPortsService = openPortsService;
     }
 
 
@@ -71,15 +68,16 @@ public class ApiController {
         return bandwidthService.getBandwidthData(intervalHours, dstAsn, mBThreshold, limit);
     }
 
-    @GetMapping("/incoming")
-    public List<IncomingData> getIncomingTraffic(
+    @GetMapping("/op")
+    public List<OpenPortsData> getIncomingTraffic(
             @RequestParam(defaultValue = "132420") int dstAsn,
             @RequestParam(required = false) List<Integer> dstPorts,
             @RequestParam(defaultValue = "0") int minRequestCount,
             @RequestParam(defaultValue = "24") int intervalHours,
-            @RequestParam(defaultValue = "10") int limit
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "false") boolean notMailed
     ) {
-        return  incomingService.getIncomingData(dstAsn, dstPorts, minRequestCount, intervalHours, limit);
+        return  openPortsService.getIncomingData(dstAsn, dstPorts, minRequestCount, intervalHours, limit,notMailed);
     }
 
 
