@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -70,7 +71,7 @@ public class MyScheduler {
         this.openPortsConfig = openPortsConfig;
         this.bulkMailService = bulkMailService;
     }
-
+    @Async
     @Scheduled(cron = "${schedule.ssh}")
     public void runSshTask() {
         if (!hasLoggedOnce) {
@@ -82,6 +83,7 @@ public class MyScheduler {
         }
     }
 
+    @Async
     @Scheduled(cron = "${schedule.outbound}")
     public void runOutboundTask() {
         if (!hasLoggedOnce) {
@@ -104,7 +106,7 @@ public class MyScheduler {
         }
     }
 
-
+    @Async
     @Scheduled(cron = "${schedule.openports}")
     public void runOpenPortsTask() {
         if (!hasLoggedOnce) {
@@ -163,14 +165,20 @@ public class MyScheduler {
     }
 
     public void executeSshCheck() {
+        log.info(Util.outSuccess("Executing the SSH method"));
         List<Mail> mlist = null ;
         List<SshData> sshList = null;
 
+        long queryStart = System.currentTimeMillis();
         // Fetch previously mailed records once
         mlist = mailService.fetchMailRecords("", "", "", "", sshConfig.getMail().getType(), sshConfig.getMail().getSkipDaysIfMailed());
         sshList = sshServices.getSsh(sshConfig.getPort(), sshConfig.getAsn(), sshConfig.getDuration().getHours(),
                 sshConfig.getMinFlowCount(), sshConfig.getResponseCount(), sshConfig.getPasswordBasedCondition(), mlist);
         log.info(Util.outGreen("SSH List Size: " + sshList.size()));
+
+        long queryEnd = System.currentTimeMillis();
+        log.info(Util.outYellow("SSH query took " + (queryEnd - queryStart) + "ms"));
+
 
 
         Set<String> mailedIps = new HashSet<>();
