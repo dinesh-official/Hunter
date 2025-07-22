@@ -6,6 +6,7 @@ import com.devkng.Hunter.model.OpenPortsData;
 import com.devkng.Hunter.model.SshData;
 import com.devkng.Hunter.model.Mail;
 import com.devkng.Hunter.service.*;
+import com.devkng.Hunter.utility.BulkMailService;
 import com.devkng.Hunter.utility.Query;
 import com.devkng.Hunter.utility.Template;
 import com.devkng.Hunter.utility.Util;
@@ -22,6 +23,7 @@ import java.sql.Connection;
 
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,11 +50,12 @@ public class MyScheduler {
     private final OutboundConfig outboundConfig ;
     private final BandwidthConfig bandwidthConfig ;
     private final OpenPortsConfig openPortsConfig ;
+    private final BulkMailService bulkMailService ;
     private boolean hasLoggedOnce = false;
     private static final Logger log = LoggerFactory.getLogger(MyScheduler.class);
 
 
-    public MyScheduler(JavaMailSender mailSender, SshServices sshServices, MailService mailService, DataSource dataSource, OutboundService outboundService, OpenPortsService openPortsService, BandwidthService bandwidthService, OpenPortsService openPortsService1, SshConfig sshConfig, MailConfig mailConfig, OutboundConfig outboundConfig, BandwidthConfig bandwidthConfig, OpenPortsConfig openPortsConfig) {
+    public MyScheduler(JavaMailSender mailSender, SshServices sshServices, MailService mailService, DataSource dataSource, OutboundService outboundService, OpenPortsService openPortsService, BandwidthService bandwidthService, OpenPortsService openPortsService1, SshConfig sshConfig, MailConfig mailConfig, OutboundConfig outboundConfig, BandwidthConfig bandwidthConfig, OpenPortsConfig openPortsConfig, BulkMailService bulkMailService) {
         this.mailSender = mailSender;
         this.sshServices = sshServices;
         this.mailService = mailService;
@@ -65,6 +68,7 @@ public class MyScheduler {
         this.outboundConfig = outboundConfig;
         this.bandwidthConfig = bandwidthConfig;
         this.openPortsConfig = openPortsConfig;
+        this.bulkMailService = bulkMailService;
     }
 
     @Scheduled(cron = "${schedule.ssh}")
@@ -226,7 +230,7 @@ public class MyScheduler {
     int availableCores = Runtime.getRuntime().availableProcessors();
 
     // Use 90% of the available cores for thread count
-    int threadCount = (int) Math.max(1, Math.floor(availableCores * 0.9));
+    int threadCount = (int) Math.max(1, Math.floor(availableCores * 0.9)*2);
 
     // Initialize the thread pool dynamically
     private final ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -234,9 +238,10 @@ public class MyScheduler {
     // Tune thread pool size as per CPU cores
 
     private void executeOpenPortsCheck() {
-        log.info(Util.outSuccess("🔍 Executing the open port method"));
-        log.info("⚙️ Initializing ExecutorService with {} threads (90% of {} cores)", threadCount, availableCores);
-        // Step 1: Pre-fetch mail records to avoid repeated DB calls
+        log.info(Util.outSuccess("Executing the open port method"));
+        log.info("Initializing ExecutorService with {} threads (90% of {} cores)", threadCount, availableCores);
+
+        // Step 1: Pre-fetch already mailed records
         List<Mail> mailList = mailService.fetchMailRecords("", "", "", "", "", openPortsConfig.getMail().getSkipDaysIfMailed());
 
         Set<String> alreadyMailedCache = mailList.stream()
@@ -244,7 +249,6 @@ public class MyScheduler {
                 .collect(Collectors.toSet());
 
         long queryStart = System.currentTimeMillis();
-
         // Step 2: Fetch open ports data
         List<OpenPortsData> openPortsList = openPortsService.getIncomingData(
                 openPortsConfig.getDstAsn(),
@@ -255,10 +259,16 @@ public class MyScheduler {
                 true
         );
         long queryEnd = System.currentTimeMillis();
+
         log.info(Util.outSuccess("OpenPorts query took " + (queryEnd - queryStart) + "ms"));
         log.info(Util.outSuccess("Open Ports List Size: " + openPortsList.size()));
 
+        // Step 3: Setup executor and latch
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(openPortsList.size());
+
+        // ✅ Authenticate only ONCE outside thread
+        bulkMailService.start();
 
         for (OpenPortsData data : openPortsList) {
             executor.execute(() -> {
@@ -266,27 +276,28 @@ public class MyScheduler {
                     String ip = data.getIp();
                     List<Integer> openPorts = data.getOpenPorts();
 
-                    // Check if any port has already been mailed
+                    // Check already mailed
                     boolean alreadyMailed = openPorts.stream()
                             .map(port -> ip + "->" + openPortsConfig.getMail().getType() + "-" + port)
                             .anyMatch(alreadyMailedCache::contains);
 
                     if (alreadyMailed) {
-                        log.info("Skipping already mailed IP: " + ip);
+                        log.info("Skipping already mailed IP: {}", ip);
                         return;
                     }
 
-                    // Prepare subject & body
+                    // Prepare email content
                     String subject = Template.getSSHCybSubject(ip);
-                    String portList = openPorts.stream()
-                            .map(String::valueOf)
-                            .collect(Collectors.joining(","));
-                    String body = Template.getSSHCybBody(ip, null, openPorts.toString());
+                    String portList = openPorts.stream().map(String::valueOf).collect(Collectors.joining(","));
+                    String body = Template.getSSHCybBody(ip, null, portList);
 
-                    // Send mail with retry
-                    boolean sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+                    // Send mail via bulk mail service (reliable)
+                    boolean start = openPortsList.indexOf(data) == 0;
+                    boolean end = openPortsList.indexOf(data) == (openPortsList.size() - 1);
+
+                    boolean sent = bulkMailService.sendMail(mailConfig.getTo(), subject, body, start, end, mailConfig.getCc());
                     if (!sent) {
-                        log.warn("First attempt failed for IP: " + ip + " - Retrying...");
+                        log.warn("Retrying mail for IP: {}", ip);
                         Thread.sleep(2000);
                         sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
                     }
@@ -295,30 +306,35 @@ public class MyScheduler {
                         for (Integer port : openPorts) {
                             String type = openPortsConfig.getMail().getType() + "-" + port;
                             insertMailRecord("", "", ip, "", type);
-                            alreadyMailedCache.add(ip + "-" + type);
-                            log.info("Mail sent to IP: " + ip + " for Port: " + port);
+                            alreadyMailedCache.add(ip + "->" + type);
+                            log.info("Mail sent to IP: {} for Port: {}", ip, port);
                         }
                     } else {
-                        log.error("Mail failed after retries for IP: " + ip);
+                        log.error("Failed to send mail to IP: {}", ip);
                     }
 
                 } catch (Exception e) {
-                    log.error("Exception while processing IP: " + data.getIp(), e);
+                    log.error("Exception while processing IP: {}", data.getIp(), e);
                 } finally {
                     latch.countDown();
                 }
             });
         }
 
+        // Wait for all threads to finish
         try {
             latch.await();
-            log.info(Util.outSuccess("All open port checks completed."));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("Open port scanning interrupted", e);
         }
-    }
 
+        // ✅ Cleanup after all threads finish
+        bulkMailService.end();
+        executor.shutdown();
+
+        log.info(Util.outSuccess("All open port emails processed."));
+    }
 
 
 

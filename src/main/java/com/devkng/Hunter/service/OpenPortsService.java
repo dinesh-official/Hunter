@@ -12,8 +12,8 @@ import org.springframework.stereotype.Service;
 
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 public class OpenPortsService {
@@ -21,6 +21,8 @@ public class OpenPortsService {
     private final HikariDataSource dataSource;
     private final MailService mailService;
     private final OpenPortsConfig openPortsConfig;
+
+    private final ExecutorService executor;
 
     public OpenPortsService(ClickHouseConfig db, MailService mailService, OpenPortsConfig openPortsConfig) {
         HikariConfig config = new HikariConfig();
@@ -34,44 +36,47 @@ public class OpenPortsService {
         this.dataSource = new HikariDataSource(config);
         this.mailService = mailService;
         this.openPortsConfig = openPortsConfig;
+        this.executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
     }
 
     public List<OpenPortsData> getIncomingData(int dstAsn, List<Integer> dstPorts, int minRequestCount,
                                                int intervalHours, int limit, boolean isScheduler) {
-        String sql = Query.getIncomingTrafficQuery(dstAsn, dstPorts, minRequestCount, intervalHours, limit * 100);
+        Map<String, OpenPortsData> dataMap = new ConcurrentHashMap<>();
+        List<String> ipList = Collections.synchronizedList(new ArrayList<>());
 
-        Map<String, OpenPortsData> dataMap = new HashMap<>();
-        List<String> allIps = new ArrayList<>();
+        String sql = Query.getIncomingTrafficQuery(dstAsn, dstPorts, minRequestCount, intervalHours, limit * 100);
 
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
+            List<Callable<Void>> tasks = new ArrayList<>();
+
             while (rs.next()) {
                 String ip = rs.getString("ip");
-                OpenPortsData data = new OpenPortsData();
-                data.setIp(ip);
-                data.setRequestCount(rs.getInt("incoming_request_count"));
-                data.setUniqueSourceIps(rs.getInt("unique_source_ips"));
-                dataMap.put(ip, data);
-                allIps.add(ip);
+                int reqCount = rs.getInt("incoming_request_count");
+                int uniqSrcIps = rs.getInt("unique_source_ips");
+
+                tasks.add(() -> {
+                    OpenPortsData data = new OpenPortsData();
+                    data.setIp(ip);
+                    data.setRequestCount(reqCount);
+                    data.setUniqueSourceIps(uniqSrcIps);
+                    dataMap.put(ip, data);
+                    ipList.add(ip);
+                    return null;
+                });
             }
 
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return Collections.emptyList();
-        }
+            executor.invokeAll(tasks);
 
-        if (allIps.isEmpty()) return Collections.emptyList();
+            // Parallel port scan
+            Map<String, List<Integer>> openPortsMap = FastScanner.ultraReliableScan(ipList, dstPorts, limit);
 
-        // 🚀 Scan IPs in parallel for open ports
-        Map<String, List<Integer>> openPortsMap = FastScanner.ultraReliableScan(allIps, dstPorts, limit);
+            List<CompletableFuture<OpenPortsData>> futureResults = new ArrayList<>();
 
-        // ✅ Filter results (parallel if isScheduler)
-        Stream<Map.Entry<String, List<Integer>>> stream = openPortsMap.entrySet().stream();
-        if (isScheduler) stream = stream.parallel();
-
-        List<OpenPortsData> filteredResults = stream.map(entry -> {
+            for (Map.Entry<String, List<Integer>> entry : openPortsMap.entrySet()) {
+                futureResults.add(CompletableFuture.supplyAsync(() -> {
                     String ip = entry.getKey();
                     List<Integer> openPorts = entry.getValue();
                     if (openPorts == null || openPorts.isEmpty()) return null;
@@ -83,28 +88,39 @@ public class OpenPortsService {
                         data.setOpenPorts(openPorts);
                         return data;
                     } else {
-                        // 🧠 Check mail records only for unmailed ports
-                        List<Integer> unmailedPorts = openPorts.stream()
-                                .filter(port -> mailService.fetchMailRecords(
-                                        "", "", ip, "",
-                                        openPortsConfig.getMail().getType() + "-" + port,
-                                        openPortsConfig.getMail().getSkipDaysIfMailed()
-                                ).isEmpty())
+                        List<Integer> unmailedPorts = openPorts.parallelStream()
+                                .filter(port -> {
+                                    List<Mail> mails = mailService.fetchMailRecords(
+                                            "", "", ip, "",
+                                            openPortsConfig.getMail().getType() + "-" + port,
+                                            openPortsConfig.getMail().getSkipDaysIfMailed()
+                                    );
+                                    return mails.isEmpty();
+                                })
                                 .collect(Collectors.toList());
 
                         if (!unmailedPorts.isEmpty()) {
                             data.setOpenPorts(unmailedPorts);
                             return data;
-                        } else {
-                            return null;
                         }
                     }
-                }).filter(Objects::nonNull)
-                .sorted(Comparator.comparingInt(OpenPortsData::getRequestCount).reversed())
-                .limit(limit)
-                .collect(Collectors.toList());
+                    return null;
+                }, executor));
+            }
 
-        return filteredResults;
+            List<OpenPortsData> results = futureResults.stream()
+                    .map(CompletableFuture::join)
+                    .filter(Objects::nonNull)
+                    .sorted(Comparator.comparingInt(OpenPortsData::getRequestCount).reversed())
+                    .limit(limit)
+                    .collect(Collectors.toList());
+
+            return results;
+
+        } catch (SQLException | InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        return Collections.emptyList();
     }
 }
-
