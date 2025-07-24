@@ -2,13 +2,14 @@ package com.devkng.Hunter.scheduler;
 
 
 import com.devkng.Hunter.config.*;
+import com.devkng.Hunter.mail.TemplateSwitcher;
 import com.devkng.Hunter.model.OpenPortsData;
 import com.devkng.Hunter.model.SshData;
 import com.devkng.Hunter.model.Mail;
 import com.devkng.Hunter.service.*;
-import com.devkng.Hunter.utility.BulkMailService;
+import com.devkng.Hunter.mail.BulkMailService;
 import com.devkng.Hunter.utility.Query;
-import com.devkng.Hunter.utility.Template;
+import com.devkng.Hunter.mail.Template;
 import com.devkng.Hunter.utility.Util;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
@@ -24,8 +25,6 @@ import java.sql.Connection;
 
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -164,66 +163,97 @@ public class MyScheduler {
         log.info(" • Mail Enabled: {}", openPortsConfig.getMail().isEnabled());
     }
 
-    public void executeSshCheck() {
+    private void executeSshCheck() {
         log.info(Util.outSuccess("Executing the SSH method"));
-        List<Mail> mlist = null ;
-        List<SshData> sshList = null;
 
+        // Step 1: Fetch already mailed records
+        List<Mail> mlist = mailService.fetchMailRecords(
+                "", "", "", "", sshConfig.getMail().getType(), sshConfig.getMail().getSkipDaysIfMailed()
+        );
+
+        Set<String> alreadyMailedCache = mlist.stream()
+                .map(m -> m.getVmIp() + "->" + m.getMailType())
+                .collect(Collectors.toSet());
+
+        // Step 2: Fetch SSH suspicious data
         long queryStart = System.currentTimeMillis();
-        // Fetch previously mailed records once
-        mlist = mailService.fetchMailRecords("", "", "", "", sshConfig.getMail().getType(), sshConfig.getMail().getSkipDaysIfMailed());
-        sshList = sshServices.getSsh(sshConfig.getPort(), sshConfig.getAsn(), sshConfig.getDuration().getHours(),
-                sshConfig.getMinFlowCount(), sshConfig.getResponseCount(), sshConfig.getPasswordBasedCondition(), mlist);
-        log.info(Util.outGreen("SSH List Size: " + sshList.size()));
-
+        List<SshData> sshList = sshServices.getSsh(
+                sshConfig.getPort(),
+                sshConfig.getAsn(),
+                sshConfig.getDuration().getHours(),
+                sshConfig.getMinFlowCount(),
+                sshConfig.getResponseCount(),
+                sshConfig.getPasswordBasedCondition(),
+                mlist
+        );
         long queryEnd = System.currentTimeMillis();
+        log.info(Util.outGreen("SSH List Size: " + sshList.size()));
         log.info(Util.outYellow("SSH query took " + (queryEnd - queryStart) + "ms"));
 
+        // Step 3: Prepare thread pool
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount); // e.g., 32 core → use 28
+        CountDownLatch latch = new CountDownLatch(sshList.size());
 
+        // Step 4: Start bulk SMTP session
+        bulkMailService.start();
 
-        Set<String> mailedIps = new HashSet<>();
-
-        for (SshData flowData : sshList) {
-            String srcIp = flowData.getSrcIp();
-
-            // Skip if already handled in this run
-            if (mailedIps.contains(srcIp)) {
-                log.info("Duplicate IP in current run, skipping: " + srcIp);
-                continue;
-            }
-
-            // Check DB history
-            List<Mail> mailHistory = mailService.fetchMailRecords("", "", srcIp, "",
-                    sshConfig.getMail().getType(), sshConfig.getMail().getSkipDaysIfMailed());
-            if (Util.alreadyMailed(mailHistory, srcIp)) {
-                log.info("Skipping already mailed IP from DB: " + srcIp);
-                continue;
-            }
-
-            // Prepare mail content
-            String subject = Template.getSSHCybSubject(srcIp);
-            String body = Template.getSSHCybBody(srcIp, "", String.valueOf(sshConfig.getPort()));
-
-            // Send mail (retry once on failure)
-            boolean sent = sendMail(mailConfig.getTo(), subject, body ,mailConfig.getCc());
-            if (!sent) {
-                log.warn("First attempt failed, retrying for IP: " + srcIp);
+        // Step 5: Process each SSH record concurrently
+        for (SshData sshData : sshList) {
+            executor.execute(() -> {
                 try {
-                    Thread.sleep(2000); // Small wait before retry
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                sent = sendMail("dineshdb121@gmail.com", subject, body);
-            }
+                    String ip = sshData.getSrcIp();
+                    String mailKey = ip + "->" + sshConfig.getMail().getType();
 
-            if (sent) {
-                insertMailRecord("", "", srcIp, "", sshConfig.getMail().getType());
-                mailedIps.add(srcIp);
-                log.info(Util.outSuccess("SSH Mail sent to IP: " + srcIp));
-            } else {
-                log.error("Failed to send mail to IP: " + srcIp + " after 2 attempts");
-            }
+                    // Skip already mailed
+                    if (alreadyMailedCache.contains(mailKey)) {
+                        log.info("Skipping already mailed IP: {}", ip);
+                        return;
+                    }
+
+                    // Build mail
+                    String subject = Template.getSSHCybSubject(ip);
+                    String body = Template.getSSHCybBody(ip, null, String.valueOf(sshConfig.getPort()));
+
+                    boolean start = sshList.indexOf(sshData) == 0;
+                    boolean end = sshList.indexOf(sshData) == (sshList.size() - 1);
+
+                    // Send email
+                    boolean sent = bulkMailService.sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+                    if (!sent) {
+                        log.warn("Retrying mail for IP: {}", ip);
+                        Thread.sleep(2000);
+                        sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc()); // fallback
+                    }
+
+                    if (sent) {
+                        insertMailRecord("", "", ip, "", sshConfig.getMail().getType());
+                        alreadyMailedCache.add(mailKey);
+                        log.info(Util.outSuccess("SSH Mail sent to IP: " + ip));
+                    } else {
+                        log.error("Failed to send mail to IP: {}", ip);
+                    }
+
+                } catch (Exception e) {
+                    log.error("Exception while processing IP: {}", sshData.getSrcIp(), e);
+                } finally {
+                    latch.countDown();
+                }
+            });
         }
+
+        // Step 6: Wait for all to finish
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("SSH detection interrupted", e);
+        }
+
+        // Step 7: Cleanup
+        bulkMailService.end();
+        executor.shutdown();
+
+        log.info(Util.outSuccess("All SSH alert emails processed."));
     }
 
 
@@ -238,7 +268,7 @@ public class MyScheduler {
     int availableCores = Runtime.getRuntime().availableProcessors();
 
     // Use 90% of the available cores for thread count
-    int threadCount = (int) Math.max(1, Math.floor(availableCores * 0.9)*2);
+    int threadCount = (int) Math.max(1, Math.floor(availableCores)*1);
 
     // Initialize the thread pool dynamically
     private final ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -247,11 +277,11 @@ public class MyScheduler {
 
     private void executeOpenPortsCheck() {
         log.info(Util.outSuccess("Executing the open port method"));
-        log.info("Initializing ExecutorService with {} threads (90% of {} cores)", threadCount, availableCores);
 
         // Step 1: Pre-fetch already mailed records
         List<Mail> mailList = mailService.fetchMailRecords("", "", "", "", "", openPortsConfig.getMail().getSkipDaysIfMailed());
 
+        // Creating the open port tag eg: 192.168.1.1->OP-3389
         Set<String> alreadyMailedCache = mailList.stream()
                 .map(m -> m.getVmIp() + "->" + m.getMailType())
                 .collect(Collectors.toSet());
@@ -268,14 +298,14 @@ public class MyScheduler {
         );
         long queryEnd = System.currentTimeMillis();
 
-        log.info(Util.outSuccess("OpenPorts query took " + (queryEnd - queryStart) + "ms"));
-        log.info(Util.outSuccess("Open Ports List Size: " + openPortsList.size()));
+        log.info(Util.outYellow("OpenPorts query took " + (queryEnd - queryStart) + "ms"));
+        log.info(Util.outGreen("Open Ports List Size: " + openPortsList.size()));
 
         // Step 3: Setup executor and latch
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(openPortsList.size());
 
-        // ✅ Authenticate only ONCE outside thread
+        // Authenticate only ONCE outside thread
         bulkMailService.start();
 
         for (OpenPortsData data : openPortsList) {
@@ -295,26 +325,28 @@ public class MyScheduler {
                     }
 
                     // Prepare email content
-                    String subject = Template.getSSHCybSubject(ip);
+                    //String subject = Template.getSSHCybSubject(ip);
                     String portList = openPorts.stream().map(String::valueOf).collect(Collectors.joining(","));
-                    String body = Template.getSSHCybBody(ip, null, portList);
+                    //String body = Template.getSSHCybBody(ip, null, portList);
 
-                    // Send mail via bulk mail service (reliable)
-                    boolean start = openPortsList.indexOf(data) == 0;
-                    boolean end = openPortsList.indexOf(data) == (openPortsList.size() - 1);
+                    int primaryPort = openPorts.get(0);
+                    TemplateSwitcher.MailTemplate template = TemplateSwitcher.getTemplateForPort(primaryPort, ip,null, portList);
 
-                    boolean sent = bulkMailService.sendMail(mailConfig.getTo(), subject, body, start, end, mailConfig.getCc());
+                    boolean sent = bulkMailService.sendMail(mailConfig.getTo(), template.subject, template.body, mailConfig.getCc());
+
+
+                    //boolean sent = bulkMailService.sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
                     if (!sent) {
                         log.warn("Retrying mail for IP: {}", ip);
-                        Thread.sleep(2000);
-                        sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+                        //Thread.sleep(2000);
+                        sent = sendMail(mailConfig.getTo(), template.subject, template.body, mailConfig.getCc());
                     }
 
                     if (sent) {
                         for (Integer port : openPorts) {
                             String type = openPortsConfig.getMail().getType() + "-" + port;
                             insertMailRecord("", "", ip, "", type);
-                            alreadyMailedCache.add(ip + "->" + type);
+                            //alreadyMailedCache.add(ip + "->" + type);
                             log.info("Mail sent to IP: {} for Port: {}", ip, port);
                         }
                     } else {
@@ -340,7 +372,7 @@ public class MyScheduler {
         // ✅ Cleanup after all threads finish
         bulkMailService.end();
         executor.shutdown();
-
+        alreadyMailedCache.clear();
         log.info(Util.outSuccess("All open port emails processed."));
     }
 

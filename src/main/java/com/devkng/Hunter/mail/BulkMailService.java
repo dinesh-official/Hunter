@@ -1,4 +1,4 @@
-package com.devkng.Hunter.utility;
+package com.devkng.Hunter.mail;
 
 import jakarta.mail.*;
 import jakarta.mail.internet.InternetAddress;
@@ -39,7 +39,7 @@ public class BulkMailService {
     }
 
     // Called per mail send
-    public synchronized boolean sendMail(String to, String subject, String body, boolean start, boolean end, String... cc) {
+    public synchronized boolean sendMail(String to, String subject, String body, String... cc) {
         try {
             if (transport == null || !transport.isConnected()) {
                 log.warn("SMTP transport is not connected. Call start() before sending mails.");
@@ -47,6 +47,7 @@ public class BulkMailService {
             }
 
             MimeMessage message = new MimeMessage(session);
+            assert mailSender.getUsername() != null;
             message.setFrom(new InternetAddress(mailSender.getUsername()));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
             if (cc != null && cc.length > 0) {

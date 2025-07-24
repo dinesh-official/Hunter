@@ -1,4 +1,4 @@
-package com.devkng.Hunter.utility;
+package com.devkng.Hunter.mail;
 
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.javamail.JavaMailSender;
