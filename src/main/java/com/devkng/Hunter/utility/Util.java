@@ -1,6 +1,6 @@
 package com.devkng.Hunter.utility;
 
-import com.devkng.Hunter.model.Mail;
+import com.devkng.Hunter.model.MailData;
 
 import java.util.List;
 import java.util.Objects;
@@ -13,7 +13,7 @@ public class Util {
     private static final String BLUE   = "\u001B[34m";
     private static final String CYAN   = "\u001B[36m";
 
-    public static boolean alreadyMailed(List<Mail> results, String vmIp) {
+    public static boolean alreadyMailed(List<MailData> results, String vmIp) {
         return results.parallelStream()
                 .anyMatch(mail ->
                         //Objects.equals(vmId, mail.getVmId()) &&

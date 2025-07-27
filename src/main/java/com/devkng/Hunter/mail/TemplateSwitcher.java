@@ -44,6 +44,11 @@ public class TemplateSwitcher {
                         Template.getMemcachedSubject(ip),
                         Template.getMemcachedBody(ip, vmName)
                 );
+            case 3306: // MySql
+                return new MailTemplate(
+                        Template.getMySQLSubject(ip),
+                        Template.getMySQLBody(ip, vmName)
+                );
             default:
                 return new MailTemplate(
                         Template.getDefaultSubject(ip),

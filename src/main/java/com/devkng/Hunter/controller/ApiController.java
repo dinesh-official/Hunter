@@ -19,7 +19,7 @@ public class ApiController {
     private final MailService mailService;
     private final BandwidthService bandwidthService;
     private final OpenPortsService openPortsService;
-    private List<Mail> mailList;
+    private List<MailData> mailList;
 
     public ApiController(SshServices flowDataService, OutboundService outboundService, MailService mailService, BandwidthService bandwidthService, OpenPortsService openPortsService) {
         this.flowDataService = flowDataService;
@@ -55,7 +55,7 @@ public class ApiController {
             @RequestParam(name = "obc", defaultValue = "0") int minObCount,
             @RequestParam(name = "usip", defaultValue = "0") int minUniqueServerIps
     ) {
-        return outboundService.getOutboundData(ipDstPort,dstAsn,srcAsn,intervalHour,clientCountry,serverCountry,responseCount,minObCount,minUniqueServerIps);
+        return outboundService.getOutboundData(ipDstPort,dstAsn,srcAsn,intervalHour,clientCountry,serverCountry,responseCount,minObCount,minUniqueServerIps, mailList);
     }
 
     @GetMapping("/bw")
@@ -63,10 +63,12 @@ public class ApiController {
             @RequestParam(name = "h", defaultValue = "600") int intervalHours,
             @RequestParam(name = "sa", defaultValue = "132420") int dstAsn,
             @RequestParam(name = "mmb", defaultValue = "524288000") long mBThreshold,
-            @RequestParam(name = "rc", defaultValue = "10") int limit
+            @RequestParam(name = "rc", defaultValue = "10") int limit,
+            @RequestParam(name = "minGb", defaultValue = "1") int minGb
     ) {
-        return bandwidthService.getBandwidthData(intervalHours, dstAsn, mBThreshold, limit);
+        return bandwidthService.getBandwidthData(intervalHours, dstAsn, mBThreshold, limit, minGb);
     }
+
 
     @GetMapping("/op")
     public List<OpenPortsData> getIncomingTraffic(
@@ -83,7 +85,7 @@ public class ApiController {
 
 
     @GetMapping("/mail")
-    public List<Mail> getMailRecords(
+    public List<MailData> getMailRecords(
             @RequestParam(name = "vi", required = false) String vmId,
             @RequestParam(name = "vo", required = false) String vmOwner,
             @RequestParam(name = "vip", required = false) String vmIp,

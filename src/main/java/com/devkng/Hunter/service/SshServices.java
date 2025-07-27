@@ -2,8 +2,8 @@ package com.devkng.Hunter.service;
 
 import com.devkng.Hunter.config.ClickHouseConfig;
 import com.devkng.Hunter.config.SshConfig;
+import com.devkng.Hunter.model.MailData;
 import com.devkng.Hunter.model.SshData;
-import com.devkng.Hunter.model.Mail;
 import com.devkng.Hunter.utility.Query;
 import com.devkng.Hunter.utility.Ssh;
 import com.devkng.Hunter.utility.Util;
@@ -39,7 +39,7 @@ public class SshServices {
         this.dataSource = new HikariDataSource(config);
     }
 
-    public List<SshData> getSsh(int ipDstPort, int dstAsn, int intervalHour, int flowCountThreshold, int maxResults, int noPasswordFlag, List<Mail> mlist) {
+    public List<SshData> getSsh(int ipDstPort, int dstAsn, int intervalHour, int flowCountThreshold, int maxResults, int noPasswordFlag, List<MailData> mlist) {
         String query = Query.getPassword(ipDstPort, dstAsn, intervalHour, flowCountThreshold);
 
         int cpuCores = Runtime.getRuntime().availableProcessors();

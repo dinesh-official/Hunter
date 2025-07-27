@@ -57,7 +57,7 @@ public class BulkMailService {
             message.setContent(body, "text/html");
 
             transport.sendMessage(message, message.getAllRecipients());
-            log.info("Mail sent to: " + to);
+            log.info("MailData sent to: " + to);
             return true;
 
         } catch (Exception e) {

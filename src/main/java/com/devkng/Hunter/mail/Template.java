@@ -334,6 +334,49 @@ public class Template {
     }
 
 
+    public static String getMySQLSubject(String ip) {
+        return "Urgent: Prevent Public Exposure of MySQL Port on Your VM - " + ip;
+    }
+
+    public static String getMySQLBody(String ip, String vmName) {
+        return """
+        <p>Dear Customer,</p>
+
+        <p>We are reaching out to inform you of a <strong>critical security concern</strong> regarding your compute node.</p>
+
+        <p><strong>Node IP:</strong> %s<br/>
+        <strong>Node Name:</strong> %s</p>
+
+        <p>Our system has detected that <strong>database port 3306</strong> on your VM is currently <strong>publicly accessible</strong>.</p>
+
+        <p>Exposing database ports to the public internet without proper security measures significantly increases the risk of unauthorized access, data breaches, and other cyber threats.</p>
+
+        <h3>Recommendations to Secure Your Database</h3>
+        <ol>
+            <li><strong>Restrict Access to Database Ports:</strong><br/>
+                Configure your firewall/security group rules to allow access only from specific, trusted IP addresses.
+            </li>
+            <li><strong>Disable Public Access:</strong><br/>
+                If public access to the database is not required, bind the database service to the local interface (<code>127.0.0.1</code>) to restrict external connections.
+            </li>
+            <li><strong>Use a VPN or Bastion Host:</strong><br/>
+                Require connections to the database to go through a secure VPN or bastion host for additional protection.
+            </li>
+        </ol>
+
+        <p>Please address this issue at the earliest to ensure the security of your VM and data. If needed, our support team is available to assist you in implementing the necessary changes.</p>
+
+        <p>Please refer to this article for <a href="https://docs.e2enetworks.com/security-best-practices" target="_blank">security best practices</a>.</p>
+
+        <p>Regards,<br/>
+        SOC Team<br/>
+        E2E Networks<br/>
+        Phone: +91-11-4117-1818 Ext: 3</p>
+        """.formatted(ip, vmName);
+    }
+
+
+
     public static String getDefaultSubject(String ip) {
         return "Urgent: Prevent Public Exposure of Database Port on Your VM - " + ip ;
     }
@@ -380,4 +423,102 @@ public class Template {
         Phone: +91-11-4117-1818 Ext: 3</p>
         """.formatted(ip, vmName, port);
     }
+
+    public static String getBandwidthSubject(String ip) {
+        return "Urgent: High Bandwidth Usage Detected on - " + ip ;
+    }
+    public static String getBandwidthBody(String ip, String vmName) {
+        return """
+        <p>Dear Customer,</p>
+
+        <p>We are reaching out to notify you that we have observed <strong>unusually high bandwidth usage</strong> from your account/server. This level of activity is significantly higher than the average usage and requires verification to ensure its legitimacy.</p>
+
+        <p><strong>Node IP:</strong> %s<br/>
+        <strong>Node Name:</strong> %s</p>
+
+        <p>To assist us in addressing this matter effectively, we kindly request the following:</p>
+
+        <ol>
+            <li><strong>Confirm Activity:</strong> Please confirm whether the bandwidth usage is due to legitimate operations or activities conducted by your team.</li>
+            <li><strong>Review Server Logs:</strong> If available, review the logs of your server to identify any unusual or unauthorized activity.</li>
+            <li><strong>Provide Details:</strong> If the high bandwidth usage is expected, kindly share the purpose or reason behind it to help us validate the activity.</li>
+        </ol>
+
+        <p>This step is essential to ensure that your account is not being exploited by unauthorized users or malicious activities. If we do not receive a response within <strong>[specific timeframe]</strong>, we may proceed with further investigation to protect our infrastructure and your resources.</p>
+
+        <p>Should you need any assistance or clarification, feel free to contact us.</p>
+
+        <p>Thank you for your cooperation.</p>
+
+        <p>Regards,<br/>
+        SOC Team<br/>
+        E2E Networks<br/>
+        Phone: +91-11-4117-1818 Ext: 3</p>
+        """.formatted(ip, vmName);
+    }
+
+    public static String getOutboundSubject(String ip) {
+        return "Urgent: Report of Malicious Outbound Traffic - " + ip ;
+    }
+
+    public static String getOutboundBody(String ip, String vmName, String targetingIp, String targetingPorts) {
+        return """
+        <p>Dear Customer,</p>
+
+        <p>We are writing to bring to your attention a <strong>critical issue</strong> identified with your compute node.</p>
+
+        <p><strong>Node IP:</strong> %s<br/>
+        <strong>Node Name:</strong> %s</p>
+
+        <p>It has been observed that the VM is exhibiting behavior that may pose a security risk to our network and others. Specifically, we have detected the following activities originating from the node:</p>
+        <ul>
+            <li>Brute force attempts targeting external systems.</li>
+            <li>Sending unsolicited or spam emails.</li>
+            <li>Unauthorized login attempts to external networks.</li>
+        </ul>
+
+        <p>These activities are in violation of our [acceptable use policy/terms of service] and could result in your VM being flagged or blocked by external systems.</p>
+
+        <p><strong>Targeting IP:</strong> %s<br/>
+        <strong>Targeting Ports:</strong> %s</p>
+
+        <h3>Recommended Actions</h3>
+        <ol>
+            <li><strong>Secure Your VM:</strong>
+                <ul>
+                    <li>Disable unnecessary services and ports.</li>
+                    <li>Kill unknown/unauthorized running processes.</li>
+                </ul>
+            </li>
+            <li><strong>Change Credentials:</strong>
+                <ul>
+                    <li>Update all passwords for users and services running on this node to strong, unique passwords.</li>
+                </ul>
+            </li>
+            <li><strong>Scan for Malware:</strong>
+                <ul>
+                    <li>Perform a comprehensive malware/antivirus scan to ensure no malicious software is present.</li>
+                </ul>
+            </li>
+            <li><strong>Restrict Access:</strong>
+                <ul>
+                    <li>Limit access to the VM by allowing only known and trusted IP addresses through a firewall or security group.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <p><strong>Note:</strong> Please address this issue within the next <strong>24 / 48 hours</strong>. Failure to resolve the issue promptly may result in additional actions, including temporary suspension of your node, to protect the network.</p>
+
+        <p>Feel free to contact us if you have any questions or need further assistance.</p>
+
+        <p>Thank you for your immediate attention to this matter.</p>
+
+        <p>Regards,<br/>
+        SOC Team<br/>
+        E2E Networks<br/>
+        Phone: +91-11-4117-1818 Ext: 3</p>
+        """.formatted(ip, vmName, targetingIp, targetingPorts);
+    }
+
+
 }

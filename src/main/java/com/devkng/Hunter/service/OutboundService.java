@@ -2,6 +2,7 @@ package com.devkng.Hunter.service;
 
 import com.devkng.Hunter.config.ClickHouseConfig;
 import com.devkng.Hunter.config.OutboundConfig;
+import com.devkng.Hunter.model.MailData;
 import com.devkng.Hunter.model.OutBoundData;
 import com.devkng.Hunter.utility.Query;
 import com.zaxxer.hikari.HikariConfig;
@@ -33,7 +34,7 @@ public class OutboundService {
     }
 
     public List<OutBoundData> getOutboundData(int ipDstPort, int dstAsn, int srcAsn, int intervalHour,
-                                              String clientCountry, String serverCountry, int responseCount,int minObCount ,int minUniqueServerIps) {
+                                              String clientCountry, String serverCountry, int responseCount, int minObCount , int minUniqueServerIps, List<MailData> mlist) {
         List<OutBoundData> results = new ArrayList<>();
 
         String query = Query.getObQuery(ipDstPort, srcAsn, dstAsn, intervalHour, responseCount);

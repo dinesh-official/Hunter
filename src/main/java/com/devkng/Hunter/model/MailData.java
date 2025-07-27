@@ -3,7 +3,7 @@ package com.devkng.Hunter.model;
 import java.time.LocalDateTime;
 
 
-public class Mail {
+public class MailData {
 
     private Long id;
 

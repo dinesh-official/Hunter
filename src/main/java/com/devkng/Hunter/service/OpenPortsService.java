@@ -2,7 +2,7 @@ package com.devkng.Hunter.service;
 
 import com.devkng.Hunter.config.ClickHouseConfig;
 import com.devkng.Hunter.config.OpenPortsConfig;
-import com.devkng.Hunter.model.Mail;
+import com.devkng.Hunter.model.MailData;
 import com.devkng.Hunter.model.OpenPortsData;
 import com.devkng.Hunter.utility.Query;
 import com.devkng.Hunter.utility.FastScanner;
@@ -90,7 +90,7 @@ public class OpenPortsService {
                     } else {
                         List<Integer> unmailedPorts = openPorts.parallelStream()
                                 .filter(port -> {
-                                    List<Mail> mails = mailService.fetchMailRecords(
+                                    List<MailData> mails = mailService.fetchMailRecords(
                                             "", "", ip, "",
                                             openPortsConfig.getMail().getType() + "-" + port,
                                             openPortsConfig.getMail().getSkipDaysIfMailed()
