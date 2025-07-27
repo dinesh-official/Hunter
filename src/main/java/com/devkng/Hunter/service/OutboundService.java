@@ -13,10 +13,10 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 @Service
 public class OutboundService {
 
@@ -34,10 +34,17 @@ public class OutboundService {
     }
 
     public List<OutBoundData> getOutboundData(int ipDstPort, int dstAsn, int srcAsn, int intervalHour,
-                                              String clientCountry, String serverCountry, int responseCount, int minObCount , int minUniqueServerIps, List<MailData> mlist) {
+                                              String clientCountry, String serverCountry, int responseCount,
+                                              int minObCount, int minUniqueServerIps, List<MailData> mlist) {
+
         List<OutBoundData> results = new ArrayList<>();
 
         String query = Query.getObQuery(ipDstPort, srcAsn, dstAsn, intervalHour, responseCount);
+
+        // Build a cache like "ip->OB-443"
+        Set<String> alreadyMailedCache = mlist.stream()
+                .map(m -> m.getVmIp() + "->" + m.getMailType()) // mailType expected like OB-443
+                .collect(Collectors.toSet());
 
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement();
@@ -49,6 +56,7 @@ public class OutboundService {
                 stat.setObCount(rs.getInt("OB_Count"));
                 stat.setUniqueServerIps(rs.getInt("unique_server_ips"));
 
+                // Extract ports as list of integers
                 String portArray = rs.getString("destination_ports");
                 List<Integer> ports = Arrays.stream(
                                 portArray.replaceAll("[\\[\\]\\s]", "").split(","))
@@ -57,8 +65,20 @@ public class OutboundService {
                         .collect(Collectors.toList());
                 stat.setDestinationPorts(ports);
 
+                // Skip if already mailed
+                boolean alreadyMailed = ports.stream()
+                        .filter(p -> p != 0)
+                        .map(p -> stat.getClientIp() + "->" + outboundConfig.getMail().getType() + "-" + p)
+                        .anyMatch(alreadyMailedCache::contains);
+
+                if (alreadyMailed) {
+                    continue;
+                }
+
                 results.add(stat);
             }
+
+            // Optional filters
             if (minObCount > 0) {
                 results = results.stream()
                         .filter(d -> d.getObCount() >= minObCount)
@@ -70,12 +90,13 @@ public class OutboundService {
                         .collect(Collectors.toList());
             }
 
-
         } catch (SQLException e) {
-            e.printStackTrace();  // Optional: use a logger in real code
+            e.printStackTrace(); // Consider logging
             throw new RuntimeException("Failed to fetch OB data", e);
         }
 
         return results;
+
     }
+
 }

@@ -66,7 +66,7 @@ public class ApiController {
             @RequestParam(name = "rc", defaultValue = "10") int limit,
             @RequestParam(name = "minGb", defaultValue = "1") int minGb
     ) {
-        return bandwidthService.getBandwidthData(intervalHours, dstAsn, mBThreshold, limit, minGb);
+        return bandwidthService.getBandwidthData(intervalHours, dstAsn, mBThreshold, limit, minGb, mailList);
     }
 
 

@@ -20,9 +20,8 @@ public class OpenPortsConfig {
 
     @PostConstruct
     public void validate() {
-        // Remove all min/max logic — just ensure defaults if really missing
         if (responseCount < 1) {
-            responseCount = 10;
+            responseCount = 10;  // default fallback
         }
         if (ports == null) {
             ports = new ArrayList<>();
@@ -30,6 +29,7 @@ public class OpenPortsConfig {
     }
 
     // Getters and Setters
+
     public int getDstAsn() {
         return dstAsn;
     }
@@ -78,6 +78,7 @@ public class OpenPortsConfig {
         this.mail = mail;
     }
 
+    // ✅ Nested Mail Class
     public static class Mail {
         private String type;
         private boolean enabled;

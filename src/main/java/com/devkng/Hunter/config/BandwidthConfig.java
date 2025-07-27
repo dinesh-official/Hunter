@@ -10,10 +10,11 @@ public class BandwidthConfig {
     private int dstAsn;
     private Duration duration = new Duration();
     private long mBThreshold;
-    private int limit;
+    private int minGb;
+    private int responseCount;
     private Mail mail = new Mail();
 
-    // Getters and Setters
+    // ✅ Getters and Setters
 
     public int getDstAsn() {
         return dstAsn;
@@ -39,12 +40,20 @@ public class BandwidthConfig {
         this.mBThreshold = mBThreshold;
     }
 
-    public int getLimit() {
-        return limit;
+    public int getMinGb() {
+        return minGb;
     }
 
-    public void setLimit(int limit) {
-        this.limit = limit;
+    public void setMinGb(int minGb) {
+        this.minGb = minGb;
+    }
+
+    public int getResponseCount() {
+        return responseCount;
+    }
+
+    public void setResponseCount(int responseCount) {
+        this.responseCount = responseCount;
     }
 
     public Mail getMail() {
@@ -55,8 +64,7 @@ public class BandwidthConfig {
         this.mail = mail;
     }
 
-    // Nested classes
-
+    // ✅ Nested Duration class
     public static class Duration {
         private int hours;
 
@@ -69,6 +77,7 @@ public class BandwidthConfig {
         }
     }
 
+    // ✅ Nested Mail class
     public static class Mail {
         private String type;
         private boolean enabled;

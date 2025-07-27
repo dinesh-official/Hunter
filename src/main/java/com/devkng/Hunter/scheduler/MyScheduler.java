@@ -3,10 +3,7 @@ package com.devkng.Hunter.scheduler;
 
 import com.devkng.Hunter.config.*;
 import com.devkng.Hunter.mail.TemplateSwitcher;
-import com.devkng.Hunter.model.MailData;
-import com.devkng.Hunter.model.OpenPortsData;
-import com.devkng.Hunter.model.OutBoundData;
-import com.devkng.Hunter.model.SshData;
+import com.devkng.Hunter.model.*;
 import com.devkng.Hunter.service.*;
 import com.devkng.Hunter.mail.BulkMailService;
 import com.devkng.Hunter.utility.Query;
@@ -160,7 +157,8 @@ public class MyScheduler {
         log.info(" • ASN: {}", bandwidthConfig.getDstAsn());
         log.info(" • Duration (hours): {}", bandwidthConfig.getDuration().getHours());
         log.info(" • Threshold (MB): {}", bandwidthConfig.getMBThreshold());
-        log.info(" • Limit: {}", bandwidthConfig.getLimit());
+        log.info(" • Limit: {}", bandwidthConfig.getResponseCount());
+        log.info(" • MinGB: {}", bandwidthConfig.getMinGb());
         log.info(" • MailData Type: {}", bandwidthConfig.getMail().getType());
         log.info(" • Skip MailData if sent in last {} day(s)", bandwidthConfig.getMail().getSkipDaysIfMailed());
         log.info(" • MailData Enabled: {}", bandwidthConfig.getMail().isEnabled());
@@ -200,7 +198,7 @@ public class MyScheduler {
         );
         long queryEnd = System.currentTimeMillis();
         log.info(Util.outGreen("SSH List Size: " + sshList.size()));
-        log.info(Util.outYellow("SSH query took " + (queryEnd - queryStart) + "ms"));
+        log.info(Util.outGreen("SSH query took " + (queryEnd - queryStart) + "ms"));
 
         // Step 3: Prepare thread pool
         ExecutorService executor = Executors.newFixedThreadPool(threadCount); // e.g., 32 core → use 28
@@ -381,9 +379,93 @@ public class MyScheduler {
 
 
     private void executeBandwidthCheck() {
-        List<MailData> mailList = mailService.fetchMailRecords("", "", "", "", bandwidthConfig.getMail().getType(),
-                bandwidthConfig.getMail().getSkipDaysIfMailed());
+        log.info(Util.outBlue("Executing the Bandwidth method"));
 
+        // Step 1: Fetch already mailed records
+        List<MailData> mailList = mailService.fetchMailRecords(
+                "", "", "", "", bandwidthConfig.getMail().getType(), bandwidthConfig.getMail().getSkipDaysIfMailed()
+        );
+
+        Set<String> alreadyMailedCache = mailList.stream()
+                .map(m -> m.getVmIp() + "->" + m.getMailType())
+                .collect(Collectors.toSet()); // 192.168.1.1->BW
+
+        // Step 2: Fetch bandwidth data
+        long queryStart = System.currentTimeMillis();
+        List<BandwidthData> bwList = bandwidthService.getBandwidthData(
+                bandwidthConfig.getDuration().getHours(),
+                bandwidthConfig.getDstAsn(),
+                bandwidthConfig.getMBThreshold(),
+                bandwidthConfig.getResponseCount(),
+                bandwidthConfig.getMinGb(),
+                mailList
+        );
+        long queryEnd = System.currentTimeMillis();
+
+        log.info(Util.outBlue("Bandwidth List Size: " + bwList.size()));
+        log.info(Util.outBlue("Bandwidth query took " + (queryEnd - queryStart) + "ms"));
+
+        // Step 3: Prepare thread pool
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(bwList.size());
+
+        // Step 4: Start bulk mail session
+        bulkMailService.start();
+
+        // Step 5: Process each bandwidth record
+        for (BandwidthData data : bwList) {
+            executor.execute(() -> {
+                try {
+                    String ip = data.getSrcIp(); //192.168.1.1
+                    String mailKey = ip + "->" + bandwidthConfig.getMail().getType(); //192.168.1.1->BW
+
+                    // Skip if already mailed
+                    if (alreadyMailedCache.contains(mailKey)) {
+                        log.info("Skipping already mailed IP: {}", ip);
+                        return;
+                    }
+
+                    // Build mail
+                    String subject = Template.getBandwidthSubject(ip);
+                    String body = Template.getBandwidthBody(ip, "");
+
+                    // Send email
+                    boolean sent = bulkMailService.sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+                    if (!sent) {
+                        log.warn("Retrying mail for IP: {}", ip);
+                        Thread.sleep(2000);
+                        sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+                    }
+
+                    if (sent) {
+                        insertMailRecord("", "", ip, "", bandwidthConfig.getMail().getType());
+                        alreadyMailedCache.add(mailKey);
+                        log.info(Util.outSuccess("Bandwidth MailData sent to IP: " + ip));
+                    } else {
+                        log.error("Failed to send bandwidth alert to IP: {}", ip);
+                    }
+
+                } catch (Exception e) {
+                    log.error("Exception while processing Bandwidth IP: {}", data.getSrcIp(), e);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Step 6: Wait for all tasks to finish
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Bandwidth detection interrupted", e);
+        }
+
+        // Step 7: Cleanup
+        bulkMailService.end();
+        executor.shutdown();
+        alreadyMailedCache.clear();
+        log.info(Util.outBlue("All Bandwidth alert emails processed."));
     }
 
     private void executeOpenPortsCheck() {
@@ -393,7 +475,7 @@ public class MyScheduler {
         List<MailData> mailList = mailService.fetchMailRecords("", "", "", "", openPortsConfig.getMail().getType()+"%",
                 openPortsConfig.getMail().getSkipDaysIfMailed());
 
-        // Creating the open port tag eg: 192.168.1.1->OP-3389
+        // Creating the open port tag eg: 192.168.1.1->OP-3306
         Set<String> alreadyMailedCache = mailList.stream()
                 .map(m -> m.getVmIp() + "->" + m.getMailType())
                 .collect(Collectors.toSet());
@@ -414,7 +496,7 @@ public class MyScheduler {
         log.info(Util.outGreen("Open Ports List Size: " + openPortsList.size()));
 
         // Step 3: Setup executor and latch
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount); //32
         CountDownLatch latch = new CountDownLatch(openPortsList.size());
 
         // Authenticate only ONCE outside thread
@@ -424,12 +506,12 @@ public class MyScheduler {
             executor.execute(() -> {
                 try {
                     String ip = data.getIp();
-                    List<Integer> openPorts = data.getOpenPorts();
+                    List<Integer> openPorts = data.getOpenPorts(); //3306,22,443
 
                     // Check already mailed
                     boolean alreadyMailed = openPorts.stream()
                             .map(port -> ip + "->" + openPortsConfig.getMail().getType() + "-" + port)
-                            .anyMatch(alreadyMailedCache::contains);
+                            .anyMatch(alreadyMailedCache::contains); // 192.168.1.1->OP-3306
 
                     if (alreadyMailed) {
                         log.info("Skipping already mailed IP: {}", ip);
@@ -450,13 +532,13 @@ public class MyScheduler {
                     //boolean sent = bulkMailService.sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
                     if (!sent) {
                         log.warn("Retrying mail for IP: {}", ip);
-                        //Thread.sleep(2000);
+                        Thread.sleep(2000);
                         sent = sendMail(mailConfig.getTo(), template.subject, template.body, mailConfig.getCc());
                     }
 
                     if (sent) {
                         for (Integer port : openPorts) {
-                            String type = openPortsConfig.getMail().getType() + "-" + port;
+                            String type = openPortsConfig.getMail().getType() + "-" + port; // OP-3306
                             insertMailRecord("", "", ip, "", type);
                             //alreadyMailedCache.add(ip + "->" + type);
                             log.info("MailData sent to IP: {} for Port: {}", ip, port);
@@ -496,7 +578,7 @@ public class MyScheduler {
             helper.setFrom("dineshkumar.s@e2entworks.com");
             helper.setTo(to);
 
-            // ✅ Filter out empty/blank CC addresses
+            //  Filter out empty/blank CC addresses
             if (cc != null) {
                 List<String> validCc = Arrays.stream(cc)
                         .filter(addr -> addr != null && !addr.trim().isEmpty())
