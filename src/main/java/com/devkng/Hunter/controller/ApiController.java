@@ -62,11 +62,10 @@ public class ApiController {
     public List<BandwidthData> getBandwidthData(
             @RequestParam(name = "h", defaultValue = "600") int intervalHours,
             @RequestParam(name = "sa", defaultValue = "132420") int dstAsn,
-            @RequestParam(name = "mmb", defaultValue = "524288000") long mBThreshold,
             @RequestParam(name = "rc", defaultValue = "10") int limit,
             @RequestParam(name = "minGb", defaultValue = "1") int minGb
     ) {
-        return bandwidthService.getBandwidthData(intervalHours, dstAsn, mBThreshold, limit, minGb, mailList);
+        return bandwidthService.getBandwidthData(intervalHours, dstAsn, limit, minGb, false);
     }
 
 

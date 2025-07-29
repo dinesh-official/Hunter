@@ -80,7 +80,7 @@ public class Query {
         );
     }
 
-    public static String getObQuery(int filterPort, int srcAsn, int dstAsn, int intervalHours, int limit) {
+    public static String getObQuery(int filterPort, int srcAsn, int dstAsn, int intervalHours) {
         return String.format("""
         WITH %d AS filter_port
         SELECT 
@@ -98,27 +98,26 @@ public class Query {
         ORDER BY 
             unique_server_ips DESC,  
             OB_Count DESC
-        LIMIT %d
-        """, filterPort, dstAsn, srcAsn, intervalHours, limit);
+        """, filterPort, dstAsn, srcAsn, intervalHours);
     }
 
-    public static String getBandwidthQuery(int dstAsn, int intervalHours, long byteThreshold, int limit) {
+    public static String getBandwidthQuery(int srcAsn, int intervalHours, long byteThreshold) {
         return String.format("""
         SELECT
           IPv4NumToString(IPV4_SRC_ADDR) AS src_ip,
-          DST_ASN,
+          SRC_ASN,
           SUM(TOTAL_BYTES) AS total_bytes,
           ROUND(SUM(TOTAL_BYTES) / 1024.0 / 1024.0 / 1024.0, 2) AS total_gb
         FROM ntopng.flows
         WHERE LAST_SEEN >= (now() - toIntervalHour(%d))
-          AND DST_ASN = %d
-        GROUP BY src_ip, DST_ASN
+          AND SRC_ASN = %d
+        GROUP BY src_ip, SRC_ASN
         HAVING SUM(TOTAL_BYTES) > %d
         ORDER BY total_bytes DESC
-        LIMIT %d;
         """,
-                intervalHours, dstAsn, byteThreshold, limit);
+                intervalHours, srcAsn, byteThreshold);
     }
+
 
 
     public static String getBandwidthQuery2(int dstAsn, int intervalHours, long mBThreshold, int limit) {

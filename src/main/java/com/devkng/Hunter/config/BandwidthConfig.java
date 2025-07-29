@@ -7,21 +7,20 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "bandwidth")
 public class BandwidthConfig {
 
-    private int dstAsn;
+    private int srcAsn;
     private Duration duration = new Duration();
-    private long mBThreshold;
-    private int minGb;
+    private int minGb; // ✅ int for whole GB
     private int responseCount;
     private Mail mail = new Mail();
 
     // ✅ Getters and Setters
 
-    public int getDstAsn() {
-        return dstAsn;
+    public int getSrcAsn() {
+        return srcAsn;
     }
 
-    public void setDstAsn(int dstAsn) {
-        this.dstAsn = dstAsn;
+    public void setSrcAsn(int srcAsn) {
+        this.srcAsn = srcAsn;
     }
 
     public Duration getDuration() {
@@ -30,14 +29,6 @@ public class BandwidthConfig {
 
     public void setDuration(Duration duration) {
         this.duration = duration;
-    }
-
-    public long getMBThreshold() {
-        return mBThreshold;
-    }
-
-    public void setMBThreshold(long mBThreshold) {
-        this.mBThreshold = mBThreshold;
     }
 
     public int getMinGb() {

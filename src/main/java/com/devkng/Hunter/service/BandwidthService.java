@@ -21,8 +21,10 @@ public class BandwidthService {
 
     private final HikariDataSource dataSource;
     private final BandwidthConfig bandwidthConfig;
+    private final MailService mailService;
+    private Set<String> alreadyMailedCache = new HashSet<>();
 
-    public BandwidthService(ClickHouseConfig db, HikariDataSource unusedDataSource, BandwidthConfig bandwidthConfig) {
+    public BandwidthService(ClickHouseConfig db, HikariDataSource unusedDataSource, BandwidthConfig bandwidthConfig, MailService mailService) {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(db.getUrl());
         config.setUsername(db.getUsername());
@@ -30,15 +32,25 @@ public class BandwidthService {
         config.setMaximumPoolSize(10);
         this.dataSource = new HikariDataSource(config);
         this.bandwidthConfig = bandwidthConfig;
+        this.mailService = mailService;
     }
 
-    public List<BandwidthData> getBandwidthData(int intervalHours, int dstAsn, long mBThreshold, int limit, int minGb, List<MailData> mailList) {
+    public List<BandwidthData> getBandwidthData(int intervalHours, int dstAsn, int limit, int minGb, boolean isScheduler) {
         List<BandwidthData> result = new ArrayList<>();
-        String sql = Query.getBandwidthQuery(dstAsn, intervalHours, mBThreshold, limit);
 
-        Set<String> alreadyMailedCache = mailList.stream()
-                .map(m -> m.getVmIp() + "->" + m.getMailType())
-                .collect(Collectors.toSet());
+        if (isScheduler) {
+            List<MailData> mailList = mailService.fetchMailRecords(
+                    "", "", "", "", bandwidthConfig.getMail().getType(), bandwidthConfig.getMail().getSkipDaysIfMailed()
+            );
+
+            alreadyMailedCache = (mailList != null)
+                    ? mailList.stream()
+                    .map(m -> m.getVmIp() + "->" + m.getMailType())
+                    .collect(Collectors.toSet())
+                    : new HashSet<>();
+        }
+        long minBytes = minGb * 1024L * 1024L * 1024L;
+        String sql = Query.getBandwidthQuery(dstAsn, intervalHours,minBytes);
 
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement();
@@ -51,13 +63,17 @@ public class BandwidthService {
                 String srcIp = rs.getString("src_ip");
                 String mailKey = srcIp + "->" + bandwidthConfig.getMail().getType();
 
-                if (alreadyMailedCache.contains(mailKey)) continue;
+                // Skip if already mailed (only in scheduler mode)
+                if (isScheduler && alreadyMailedCache.contains(mailKey)) continue;
 
                 BandwidthData b = new BandwidthData();
                 b.setSrcIp(srcIp);
-                b.setDstAsn(rs.getInt("DST_ASN"));
+                b.setDstAsn(rs.getInt("SRC_ASN"));
                 b.setTotalGb(totalGb);
+                if (!(limit==result.size())){
                 result.add(b);
+                }
+
             }
 
         } catch (SQLException e) {

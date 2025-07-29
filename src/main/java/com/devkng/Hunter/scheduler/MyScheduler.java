@@ -154,9 +154,8 @@ public class MyScheduler {
         log.info(" • MailData Enabled: {}", outboundConfig.getMail().isEnabled());
         //
         log.info(Util.outGreen(" Loaded Bandwidth Configuration:"));
-        log.info(" • ASN: {}", bandwidthConfig.getDstAsn());
+        log.info(" • ASN: {}", bandwidthConfig.getSrcAsn());
         log.info(" • Duration (hours): {}", bandwidthConfig.getDuration().getHours());
-        log.info(" • Threshold (MB): {}", bandwidthConfig.getMBThreshold());
         log.info(" • Limit: {}", bandwidthConfig.getResponseCount());
         log.info(" • MinGB: {}", bandwidthConfig.getMinGb());
         log.info(" • MailData Type: {}", bandwidthConfig.getMail().getType());
@@ -381,79 +380,69 @@ public class MyScheduler {
     private void executeBandwidthCheck() {
         log.info(Util.outBlue("Executing the Bandwidth method"));
 
-        // Step 1: Fetch already mailed records
-        List<MailData> mailList = mailService.fetchMailRecords(
-                "", "", "", "", bandwidthConfig.getMail().getType(), bandwidthConfig.getMail().getSkipDaysIfMailed()
-        );
-
-        Set<String> alreadyMailedCache = mailList.stream()
-                .map(m -> m.getVmIp() + "->" + m.getMailType())
-                .collect(Collectors.toSet()); // 192.168.1.1->BW
-
-        // Step 2: Fetch bandwidth data
+        // STEP 1: Query ClickHouse for bandwidth data
         long queryStart = System.currentTimeMillis();
         List<BandwidthData> bwList = bandwidthService.getBandwidthData(
-                bandwidthConfig.getDuration().getHours(),
-                bandwidthConfig.getDstAsn(),
-                bandwidthConfig.getMBThreshold(),
-                bandwidthConfig.getResponseCount(),
-                bandwidthConfig.getMinGb(),
-                mailList
+                bandwidthConfig.getDuration().getHours(),     // e.g., last N hours
+                bandwidthConfig.getSrcAsn(),                   // e.g., AS number to filter by
+                bandwidthConfig.getResponseCount(),            // Limit number of results
+                bandwidthConfig.getMinGb(),                    // Minimum GB threshold
+                true                                           // Internal processing flag
         );
         long queryEnd = System.currentTimeMillis();
 
+        // STEP 2: Log the result time of the query
         log.info(Util.outBlue("Bandwidth List Size: " + bwList.size()));
         log.info(Util.outBlue("Bandwidth query took " + (queryEnd - queryStart) + "ms"));
 
-        // Step 3: Prepare thread pool
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch latch = new CountDownLatch(bwList.size());
+        // STEP 3: Initialize thread pool to process bandwidth entries concurrently
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);  // Set thread count in config
+        CountDownLatch latch = new CountDownLatch(bwList.size());              // Ensure all tasks complete before exiting
 
-        // Step 4: Start bulk mail session
+        // STEP 4: Start the bulk mail session
         bulkMailService.start();
 
-        // Step 5: Process each bandwidth record
+        // STEP 5: Iterate over each bandwidth data and send alerts
         for (BandwidthData data : bwList) {
             executor.execute(() -> {
                 try {
-                    String ip = data.getSrcIp(); //192.168.1.1
-                    String mailKey = ip + "->" + bandwidthConfig.getMail().getType(); //192.168.1.1->BW
+                    String ip = data.getSrcIp();  // Example: 192.168.1.1
+                    String mailKey = ip + "->" + bandwidthConfig.getMail().getType(); // Unique identifier for dedup
 
-                    // Skip if already mailed
-                    if (alreadyMailedCache.contains(mailKey)) {
-                        log.info("Skipping already mailed IP: {}", ip);
-                        return;
-                    }
-
-                    // Build mail
+                    // STEP 5.1: Prepare mail subject and body
                     String subject = Template.getBandwidthSubject(ip);
                     String body = Template.getBandwidthBody(ip, "");
 
-                    // Send email
-                    boolean sent = bulkMailService.sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
+                    // STEP 5.2: Send mail using bulk mail service
+                    boolean sent = bulkMailService.sendMail(
+                            mailConfig.getTo(), subject, body, mailConfig.getCc()
+                    );
+
+                    // STEP 5.3: Retry once if initial send fails
                     if (!sent) {
                         log.warn("Retrying mail for IP: {}", ip);
-                        Thread.sleep(2000);
+                        Thread.sleep(2000); // Simple backoff delay
                         sent = sendMail(mailConfig.getTo(), subject, body, mailConfig.getCc());
                     }
 
+                    // STEP 5.4: Log and persist status of mail
                     if (sent) {
                         insertMailRecord("", "", ip, "", bandwidthConfig.getMail().getType());
-                        alreadyMailedCache.add(mailKey);
                         log.info(Util.outSuccess("Bandwidth MailData sent to IP: " + ip));
                     } else {
                         log.error("Failed to send bandwidth alert to IP: {}", ip);
                     }
 
                 } catch (Exception e) {
+                    // STEP 5.5: Catch and log any processing exception
                     log.error("Exception while processing Bandwidth IP: {}", data.getSrcIp(), e);
                 } finally {
-                    latch.countDown();
+                    latch.countDown();  // STEP 5.6: Mark task as done
                 }
             });
         }
 
-        // Step 6: Wait for all tasks to finish
+        // STEP 6: Wait for all email tasks to complete
         try {
             latch.await();
         } catch (InterruptedException e) {
@@ -461,10 +450,9 @@ public class MyScheduler {
             log.error("Bandwidth detection interrupted", e);
         }
 
-        // Step 7: Cleanup
+        // STEP 7: End bulk mail session and shutdown executor
         bulkMailService.end();
         executor.shutdown();
-        alreadyMailedCache.clear();
         log.info(Util.outBlue("All Bandwidth alert emails processed."));
     }
 
