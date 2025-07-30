@@ -1,16 +1,25 @@
 #!/bin/bash
+set -e
 
 # Create hunter user if not exists
 if ! id "hunter" >/dev/null 2>&1; then
     useradd --system --no-create-home --shell /usr/sbin/nologin hunter
 fi
 
-# Set permissions
+# Ensure directories exist before setting ownership
+mkdir -p /usr/lib/hunter
+mkdir -p /etc/hunter
+mkdir -p /var/log/hunter
+
+# Set ownership
 chown -R hunter:hunter /usr/lib/hunter
 chown -R hunter:hunter /etc/hunter
 chown -R hunter:hunter /var/log/hunter
 
-# Enable and start service
+# Reload and enable service
 systemctl daemon-reexec
 systemctl daemon-reload
-systemctl enable hunter
+systemctl enable hunter.service || true
+systemctl restart hunter.service || true
+
+exit 0
