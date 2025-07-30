@@ -2,7 +2,7 @@ package com.devkng.Hunter.service;
 
 
 import com.devkng.Hunter.config.MySqlConfig;
-import com.devkng.Hunter.model.Mail;
+import com.devkng.Hunter.model.MailData;
 import com.devkng.Hunter.utility.Query;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -28,21 +28,22 @@ public class MailService {
         config.setJdbcUrl(db.getUrl());
         config.setUsername(db.getUsername());
         config.setPassword(db.getPassword());
+        config.setConnectionTimeout(5000);
         config.setMaximumPoolSize(10); // adjust as needed
 
         this.dataSource = new HikariDataSource(config);
     }
 
     // Fetch mail records based on filters and date interval
-    public List<Mail> fetchMailRecords(String vmId, String vmOwner, String vmIp, String vmName, String mailType, int lastDays) {
+    public List<MailData> fetchMailRecords(String vmId, String vmOwner, String vmIp, String vmName, String mailType, int lastDays) {
         long start = System.currentTimeMillis();
-        List<Mail> results = new ArrayList<>();
+        List<MailData> results = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(Query.getMail(lastDays, vmId, vmOwner, vmIp, vmName, mailType))) {
 
             while (rs.next()) {
-                Mail record = new Mail();
+                MailData record = new MailData();
                 record.setId(rs.getLong("id"));
                 record.setCreatedAd(rs.getTimestamp("createdAd").toLocalDateTime());
                 record.setVmId(rs.getString("vmId"));

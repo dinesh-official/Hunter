@@ -1,14 +1,14 @@
 package com.devkng.Hunter.model;
 
-public class FlowData {
+public class SshData {
     private String srcIp;       // to hold source IP
     private long flowCount;     // to hold count of flows
 
     // Default constructor
-    public FlowData() {}
+    public SshData() {}
 
     // Constructor to create object quickly
-    public FlowData(String srcIp, long flowCount) {
+    public SshData(String srcIp, long flowCount) {
         this.srcIp = srcIp;
         this.flowCount = flowCount;
     }
@@ -34,7 +34,7 @@ public class FlowData {
     }
 
     public String toString() {
-        return "FlowData{" +
+        return "SshData{" +
                 "dstIp='" + srcIp + '\'' +
                 ", flowCount=" + flowCount +
                 // include other fields as needed
