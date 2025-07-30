@@ -128,8 +128,8 @@ sudo systemctl status hunter
 ### One-Click Installation (Optional)
 
 ```bash
-wget https://github.com/dinesh-official/Hunter/raw/main/hunter.deb && \
-sudo apt install ./hunter.deb && \
+wget https://github.com/dinesh-official/Hunter/releases/download/v2.0.0/Hunter.deb && \
+sudo apt install ./Hunter.deb && \
 sudo systemctl enable hunter.service && \
 sudo systemctl start hunter.service
 ```
