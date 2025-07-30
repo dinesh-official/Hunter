@@ -221,7 +221,7 @@ public class MyScheduler {
 
                     // Build mail
                     String subject = Template.getSSHCybSubject(ip);
-                    String body = Template.getSSHCybBody(ip, null, String.valueOf(sshConfig.getPort()));
+                    String body = Template.getSSHCybBody(ip, "", String.valueOf(sshConfig.getPort()));
 
                     boolean start = sshList.indexOf(sshData) == 0;
                     boolean end = sshList.indexOf(sshData) == (sshList.size() - 1);
@@ -329,7 +329,7 @@ public class MyScheduler {
                             .collect(Collectors.joining(", "));
                     String subject = Template.getOutboundSubject(ip);
                     String body = Template.getOutboundBody(
-                            ip, null,
+                            ip, "",
                             obData.getUniqueServerIps() + " Multiple Random IP's",
                             cleanedPorts
                     );
@@ -512,7 +512,7 @@ public class MyScheduler {
                     //String body = Template.getSSHCybBody(ip, null, portList);
 
                     int primaryPort = openPorts.get(0);
-                    TemplateSwitcher.MailTemplate template = TemplateSwitcher.getTemplateForPort(primaryPort, ip,null, portList);
+                    TemplateSwitcher.MailTemplate template = TemplateSwitcher.getTemplateForPort(primaryPort, ip,"", portList);
 
                     boolean sent = bulkMailService.sendMail(mailConfig.getTo(), template.subject, template.body, mailConfig.getCc());
 
