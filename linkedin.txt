@@ -1,0 +1,51 @@
+🚀 From Challenge to Innovation: Introducing Hunter
+
+Recently, while working on enhancing network visibility and alerting, I explored the possibility of using ntopng for advanced conditional alerting.
+
+I even reached out to the ntopng support team with the following use case:
+
+📌 Trigger an email alert when:
+
+Destination ASN = 132420
+
+Destination Port = 22 (SSH)
+
+Time Window = 1 day
+
+Flow Count > 1000 from a single source IP
+
+Include contextual data (hostname, node IP, offending source IP, tenant ID)
+
+The response was clear:
+❌ "No, currently it's not available. We are planning on adding something similar, but no specific plan for now."
+
+This limitation inspired me to develop my own solution – Hunter 🛡️
+
+✨ Hunter at a Glance:
+✔️ Detects SSH access attempts
+✔️ Monitors outbound traffic & bandwidth usage
+✔️ Identifies open ports & anomalies
+✔️ Provides RESTful API access
+✔️ High-performance analytics powered by ClickHouse
+✔️ Auto ticketing + intelligent alert deduplication
+✔️ Delivered as a .deb installer for easy deployment
+
+📚 Documentation available:
+
+Project Report
+
+Installation Guide
+
+Configuration Guide
+
+🖼️ I’ll be sharing screenshots and outputs from Hunter alongside this post to show its real-world capabilities.
+
+🔥 And here’s the exciting part:
+👉 Hunter is now released as Open Source on GitHub 🎉
+Built with Java + Spring Boot, anyone can clone, use, and extend Hunter for their own monitoring & alerting needs.
+
+This is just the beginning – true innovation happens when we turn challenges into solutions 🚀
+
+🔗 [GitHub Repository link here]
+
+#CyberSecurity #SpringBoot #ClickHouse #Monitoring #Alerting #HunterProject #Innovation #OpenSource #ntopng
