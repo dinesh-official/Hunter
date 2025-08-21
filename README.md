@@ -1,4 +1,5 @@
 # Hunter Installation Guide
+<img width="806" height="373" alt="image" src="https://github.com/user-attachments/assets/c8f7bc68-f621-4960-ac70-20644e471f07" />
 
 ## Hunter - Version 1 Installation Guide
 
