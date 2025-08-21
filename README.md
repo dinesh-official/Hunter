@@ -1,5 +1,13 @@
-# Hunter Installation Guide
+# Basic Architecture 
+
 <img width="806" height="373" alt="image" src="https://github.com/user-attachments/assets/c8f7bc68-f621-4960-ac70-20644e471f07" />
+
+# API Architecture 
+
+<img width="781" height="615" alt="image" src="https://github.com/user-attachments/assets/bc080246-810b-409c-9709-6cee44e091ec" />
+
+
+# Hunter Installation Guide
 
 ## Hunter - Version 2 Installation Guide
 
